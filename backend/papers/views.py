@@ -6,7 +6,6 @@ from .serializers import PaperSerializer, PaperCreateSerializer
 from accounts.models import Researcher
 
 
-# 🔒 Status constants (VERY IMPORTANT)
 STATUS_SUBMITTED = "submitted"
 STATUS_UNDER_REVIEW = "Under review"
 

@@ -17,16 +17,11 @@ export default function AdminLogin() {
 
     try {
       const payload = { email, password };
-
-      // 🔥 IMPORTANT: call admin endpoint
       const res = await api.post("/api/auth/admin-login/", payload);
-
-      // 🔐 store tokens
       localStorage.setItem("access", res.data.access);
       localStorage.setItem("refresh", res.data.refresh);
       localStorage.setItem("is_admin", "true");
       localStorage.setItem("role","admin");
-      // ✅ directly navigate (no need to check role)
       navigate("/admin/dashboard");
 
     } catch (err) {

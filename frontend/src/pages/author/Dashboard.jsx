@@ -18,12 +18,10 @@ export default function AuthorDashboard() {
     const fetchAuthorData = async () => {
       try {
         setLoading(true);
-        // Hits PaperListView which filters by request.user in Django
         const res = await api.get("/api/papers/");
         
         if (res.data && res.data.status) {
           setPapers(res.data.papers || []);
-          // Fallback to empty object values if counts are missing
           setStats(res.data.counts || { total: 0, submitted: 0, assigned: 0 });
         }
       } catch (err) {
@@ -33,7 +31,7 @@ export default function AuthorDashboard() {
       }
     };
 
-    fetchAuthorData(); // ✅ Fixed: Matches function name definition
+    fetchAuthorData(); 
   }, []);
 
   const columns = [
@@ -76,14 +74,13 @@ export default function AuthorDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* 📊 Author Stats Section */}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatsCard label="Total Submissions" value={stats.total} />
         <StatsCard label="Successfully Submitted" value={stats.submitted} />
         <StatsCard label="Under Review" value={stats.assigned} />
       </div>
 
-      {/* 📑 Recent Submissions Table */}
       <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-800">My Recent Submissions</h3>

@@ -6,7 +6,6 @@ import hashlib
 
 from django.contrib.auth import get_user_model
 
-# ------------------ DJANGO SETUP ------------------
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "matching_portal.settings")
 django.setup()
@@ -19,7 +18,6 @@ User = get_user_model()
 COMMON_PASSWORD = "StrongPass123!"
 
 
-# ------------------ HELPERS ------------------
 
 def generate_email(name):
     unique = hashlib.md5(name.encode()).hexdigest()[:6]
@@ -49,12 +47,10 @@ def create_user_and_researcher(name, affiliation, paper_keywords):
         }
     )
 
-    # ✅ set password
     if created:
         user.set_password(COMMON_PASSWORD)
         user.save()
 
-    # optional: update name if missing
     if not created:
         updated = False
         if not user.first_name:
@@ -66,7 +62,6 @@ def create_user_and_researcher(name, affiliation, paper_keywords):
         if updated:
             user.save()
 
-    # ✅ researcher
     researcher, r_created = Researcher.objects.get_or_create(
         user=user,
         defaults={
@@ -77,7 +72,6 @@ def create_user_and_researcher(name, affiliation, paper_keywords):
         }
     )
 
-    # 🔥 update interests (merge)
     if not r_created:
         existing = set(researcher.research_interests or [])
         new_keywords = set(paper_keywords)
@@ -92,9 +86,6 @@ def create_user_and_researcher(name, affiliation, paper_keywords):
         researcher.save()
 
     return user
-
-
-# ------------------ MAIN ------------------
 
 def main():
 
@@ -129,8 +120,6 @@ def main():
         if user.email not in seen_users:
             user_count += 1
             seen_users.add(user.email)
-
-        # ✅ ALL AUTHORS
         author_names = []
         affiliations_set = set()
 
@@ -144,7 +133,6 @@ def main():
 
         affiliations_list = list(affiliations_set)
 
-        # ✅ CREATE PAPER
         Paper.objects.create(
             title=paper.get("title"),
             abstract=paper.get("abstract"),
@@ -158,9 +146,9 @@ def main():
 
         paper_count += 1
 
-    print("✅ Data Insertion Complete")
-    print(f"📄 Papers Inserted: {paper_count}")
-    print(f"👤 Unique Users: {user_count}")
+    print("Data Insertion Complete")
+    print(f"Papers Inserted: {paper_count}")
+    print(f"Unique Users: {user_count}")
 
 
 if __name__ == "__main__":

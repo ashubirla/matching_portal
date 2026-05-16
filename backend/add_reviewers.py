@@ -6,7 +6,6 @@ import hashlib
 
 from django.contrib.auth import get_user_model
 
-# ------------------ DJANGO SETUP ------------------
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "matching_portal.settings")
 django.setup()
@@ -18,7 +17,7 @@ User = get_user_model()
 COMMON_PASSWORD = "StrongPass123!"
 
 
-# ------------------ HELPERS ------------------
+
 
 def generate_email(name):
     unique = hashlib.md5(name.encode()).hexdigest()[:6]
@@ -39,7 +38,6 @@ def create_user_and_researcher(name, affiliation, interests):
     email = generate_email(name)
     first_name, last_name = split_name(name)
 
-    # ✅ CREATE OR GET USER
     user, created = User.objects.get_or_create(
         email=email,
         defaults={
@@ -49,12 +47,10 @@ def create_user_and_researcher(name, affiliation, interests):
         }
     )
 
-    # ✅ SET PASSWORD
     if created:
         user.set_password(COMMON_PASSWORD)
         user.save()
 
-    # ✅ UPDATE NAME IF MISSING
     if not created:
         updated = False
         if not user.first_name:
@@ -66,18 +62,17 @@ def create_user_and_researcher(name, affiliation, interests):
         if updated:
             user.save()
 
-    # ✅ CREATE OR UPDATE RESEARCHER
     researcher, r_created = Researcher.objects.get_or_create(
         user=user,
         defaults={
             "name": name,
             "institutions": [affiliation] if affiliation else [],
             "research_interests": interests,
-            "is_reviewer": True   # 🔥 here reviewers = True
+            "is_reviewer": True 
         }
     )
 
-    # 🔥 UPDATE EXISTING RESEARCHER
+
     if not r_created:
         existing = set(researcher.research_interests or [])
         new = set(interests or [])
@@ -92,9 +87,6 @@ def create_user_and_researcher(name, affiliation, interests):
         researcher.save()
 
     return user
-
-
-# ------------------ MAIN ------------------
 
 def main():
 
@@ -123,8 +115,8 @@ def main():
             user_count += 1
             seen_users.add(user.email)
 
-    print("✅ Data Insertion Complete")
-    print(f"👤 Unique Users Created: {user_count}")
+    print("Data Insertion Complete")
+    print(f"Unique Users Created: {user_count}")
 
 
 if __name__ == "__main__":

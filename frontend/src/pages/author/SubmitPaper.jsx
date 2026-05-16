@@ -61,12 +61,8 @@ export default function SubmitPaper() {
     try {
       if (!pdf) return alert("Please select a PDF first.");
       if (keywords.length === 0) return alert("Please add at least one keyword.");
-
-      // 🔐 ImageKit Auth
       const authRes = await api.get("/api/files/upload_auth/");
       const { token, signature, expire, publicKey } = authRes.data;
-
-      // 📤 Upload to ImageKit
       const formData = new FormData();
       formData.append("file", pdf);
       formData.append("fileName", `paper_${Date.now()}.pdf`);
@@ -78,14 +74,14 @@ export default function SubmitPaper() {
 
       const uploadRes = await axios.post("https://upload.imagekit.io/api/v1/files/upload", formData);
 
-      // 📄 Create Paper Record
+
       await api.post("/api/papers/create/", {
         title,
         abstract,
         keywords,
         research_domain: [research_domain],
         pdf_url: uploadRes.data.url,
-        authors: authors, // Sending list of {name, institute}
+        authors: authors,
       });
 
       setMsg("✅ Paper submitted successfully! Redirecting to dashboard...");
@@ -136,7 +132,6 @@ export default function SubmitPaper() {
             ))}
           </select>
 
-          {/* Keywords Tag UI */}
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
               {keywords.map((k) => (
@@ -155,7 +150,6 @@ export default function SubmitPaper() {
           </div>
         </div>
 
-        {/* Authors Section */}
         <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm space-y-4">
           <h3 className="text-sm font-bold text-gray-800 uppercase tracking-tight">Author Details</h3>
           {authors.map((author, index) => (

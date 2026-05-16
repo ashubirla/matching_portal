@@ -15,7 +15,6 @@ from accounts.models import Researcher
 
 User = get_user_model()
 
-# --- Authentication Views ---
 
 @api_view(["POST"])
 def register(request):
@@ -86,7 +85,6 @@ def logout_view(request):
     except Exception:
         return Response({"status": False, "message": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
 
-# --- Token & Profile Views ---
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -102,7 +100,6 @@ def verify_token(request):
 @permission_classes([IsAuthenticated])
 def profile(request):
     try:
-        # Using the related_name="researcher" from your model
         researcher = request.user.researcher
         return Response({
             "status": True,
@@ -129,7 +126,6 @@ def update_reviewer_status(request):
     except Researcher.DoesNotExist:
         return Response({"status": False, "message": "Researcher profile not found"}, status=status.HTTP_404_NOT_FOUND)
 
-# --- Admin Specific Views ---
 
 class ReviewerListView(generics.ListAPIView):
     """

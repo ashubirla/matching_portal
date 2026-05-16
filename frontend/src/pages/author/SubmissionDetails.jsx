@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import api from "../api"; // 🛠️ Using consistent api instance
+import api from "../api";
 import StatusBadge from "../../components/StatusBadge";
 
 export default function SubmissionDetails() {
@@ -12,11 +12,7 @@ export default function SubmissionDetails() {
     const fetchPaper = async () => {
       try {
         setLoading(true);
-        // The 'api' instance handles baseURL and Auth headers automatically
         const res = await api.get(`/api/papers/${paperId}/`);
-        
-        // Your PaperDetailView returns the paper object directly or in a 'data' key
-        // Based on your PaperDetailView implementation, it returns serializer.data
         setPaper(res.data); 
       } catch (err) {
         console.error("Error fetching paper detail:", err);
@@ -49,7 +45,6 @@ export default function SubmissionDetails() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="text-xs font-bold text-blue-600 uppercase tracking-widest">
@@ -59,8 +54,6 @@ export default function SubmissionDetails() {
         </div>
         <StatusBadge status={paper.status} />
       </div>
-
-      {/* Main Content Card */}
       <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
         <div className="space-y-6">
           {/* Abstract */}
@@ -82,16 +75,12 @@ export default function SubmissionDetails() {
               ))}
             </div>
           </div>
-
-          {/* Authors (Displaying the JSON author_names from your model) */}
           <div>
             <h3 className="text-sm font-bold text-gray-800 mb-2 uppercase tracking-tight">Author List</h3>
             <div className="flex flex-wrap gap-2 text-sm text-gray-600">
               {paper.author_names?.join(", ") || "No authors listed"}
             </div>
           </div>
-
-          {/* Action Buttons */}
           <div className="pt-6 border-t border-gray-50 flex flex-wrap gap-3">
             <a
               href={paper.pdf_url}
