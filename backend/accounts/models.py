@@ -12,9 +12,8 @@ class Researcher(models.Model):
     
     name = models.CharField(max_length=255)
     institutions = models.JSONField(default=list)
-    research_interests = models.JSONField(default=list)
     is_reviewer = models.BooleanField(default=False)
-
+    work = models.TextField(null=True, blank=True)
     class Meta:
         db_table = "researchers"
 

@@ -4,6 +4,7 @@ import django
 import json
 import hashlib
 
+from tqdm import tqdm
 from django.contrib.auth import get_user_model
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -16,7 +17,6 @@ from accounts.models import Researcher
 User = get_user_model()
 
 COMMON_PASSWORD = "StrongPass123!"
-
 
 
 def generate_email(name):
@@ -33,7 +33,7 @@ def split_name(full_name):
     return parts[0], " ".join(parts[1:])
 
 
-def create_user_and_researcher(name, affiliation, paper_keywords):
+def create_user_and_researcher(name, affiliation):
 
     email = generate_email(name)
     first_name, last_name = split_name(name)
@@ -53,12 +53,15 @@ def create_user_and_researcher(name, affiliation, paper_keywords):
 
     if not created:
         updated = False
+
         if not user.first_name:
             user.first_name = first_name
             updated = True
+
         if not user.last_name:
             user.last_name = last_name
             updated = True
+
         if updated:
             user.save()
 
@@ -67,18 +70,11 @@ def create_user_and_researcher(name, affiliation, paper_keywords):
         defaults={
             "name": name,
             "institutions": [affiliation] if affiliation else [],
-            "research_interests": paper_keywords,
             "is_reviewer": False
         }
     )
 
     if not r_created:
-        existing = set(researcher.research_interests or [])
-        new_keywords = set(paper_keywords)
-
-        updated_interests = list(existing.union(new_keywords))[:15]
-
-        researcher.research_interests = updated_interests
 
         if affiliation and affiliation not in researcher.institutions:
             researcher.institutions.append(affiliation)
@@ -87,24 +83,24 @@ def create_user_and_researcher(name, affiliation, paper_keywords):
 
     return user
 
+
 def main():
 
-    with open("final_papers.json", "r", encoding="utf-8") as f:
+    with open("papers.json", "r", encoding="utf-8") as f:
         papers = json.load(f)
 
     paper_count = 0
     user_count = 0
     seen_users = set()
 
-    for paper in papers:
+    for paper in tqdm(papers, desc="Processing Papers"):
 
         authors = paper.get("authors", [])
+
         if not authors:
             continue
 
-        keywords = paper.get("keywords", [])
-
-        # ✅ FIRST AUTHOR
+        # FIRST AUTHOR
         first_author = authors[0]
         first_name = first_author.get("name")
 
@@ -113,21 +109,23 @@ def main():
 
         user = create_user_and_researcher(
             first_name,
-            first_affiliation,
-            keywords
+            first_affiliation
         )
 
         if user.email not in seen_users:
             user_count += 1
             seen_users.add(user.email)
+
         author_names = []
         affiliations_set = set()
 
         for a in authors:
+
             name = a.get("name")
             author_names.append(name)
 
             for aff in a.get("affiliations", []):
+
                 if aff and aff.strip():
                     affiliations_set.add(aff.strip())
 
@@ -136,7 +134,6 @@ def main():
         Paper.objects.create(
             title=paper.get("title"),
             abstract=paper.get("abstract"),
-            keywords=keywords,
             pdf_url=f"https://doi.org/{paper.get('doi')}",
             author=user,
             author_names=author_names,
@@ -146,7 +143,7 @@ def main():
 
         paper_count += 1
 
-    print("Data Insertion Complete")
+    print("\nData Insertion Complete")
     print(f"Papers Inserted: {paper_count}")
     print(f"Unique Users: {user_count}")
 

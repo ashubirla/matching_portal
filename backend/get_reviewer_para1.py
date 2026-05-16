@@ -1,4 +1,3 @@
-import json
 import time
 import requests
 
@@ -8,8 +7,7 @@ import requests
 
 HF_TOKEN = "token here"
 
-INPUT_FILE = "reviewers.json"
-OUTPUT_FILE = "reviewers_with_work.json"
+AUTHOR_ID = "A5100376569"
 
 MODEL_URL = "https://router.huggingface.co/v1/chat/completions"
 
@@ -55,8 +53,11 @@ def fetch_author_papers(author_id):
 
     response = requests.get(url, params=params)
 
+    print("\nOPENALEX STATUS:")
+    print(response.status_code)
+
     if response.status_code != 200:
-        print(f"Failed fetching papers for {author_id}")
+        print("Failed fetching papers")
         return []
 
     data = response.json()
@@ -76,27 +77,39 @@ def build_research_text(papers):
 
         title = paper.get("display_name", "")
 
+        # -------------------------------------------------
+        # ABSTRACT
+        # -------------------------------------------------
+
         abstract = reconstruct_abstract(
             paper.get("abstract_inverted_index")
         )
 
-        primary_topic = paper.get("primary_topic", {})
+        # -------------------------------------------------
+        # PRIMARY TOPIC
+        # -------------------------------------------------
+
+        primary_topic = paper.get("primary_topic") or {}
 
         topic = primary_topic.get(
             "display_name", ""
         )
 
-        subfield = primary_topic.get(
-            "subfield", {}
+        subfield = (
+            primary_topic.get("subfield") or {}
         ).get("display_name", "")
 
-        field = primary_topic.get(
-            "field", {}
+        field = (
+            primary_topic.get("field") or {}
         ).get("display_name", "")
 
-        domain = primary_topic.get(
-            "domain", {}
+        domain = (
+            primary_topic.get("domain") or {}
         ).get("display_name", "")
+
+        # -------------------------------------------------
+        # CONCEPTS
+        # -------------------------------------------------
 
         concepts = []
 
@@ -108,6 +121,10 @@ def build_research_text(papers):
                 concepts.append(concept_name)
 
         concept_text = ", ".join(concepts)
+
+        # -------------------------------------------------
+        # BUILD PAPER TEXT
+        # -------------------------------------------------
 
         full_text += f"""
 ==================================================
@@ -172,6 +189,18 @@ Instead identify SPECIFIC areas such as:
 - recommendation systems
 - retrieval augmented generation
 
+Focus heavily on:
+1. Exact subtopics
+2. Technical methodologies
+3. Algorithms used
+4. Architectures/frameworks
+5. Optimization techniques
+6. Research problems solved
+7. Application domains
+8. Systems developed
+9. Data analysis techniques
+10. Computational methods
+
 Write ONE detailed academic paragraph.
 
 Do NOT use bullet points.
@@ -201,8 +230,11 @@ Research Papers:
         timeout=300
     )
 
+    print("\nMODEL STATUS:")
+    print(response.status_code)
+
     if response.status_code != 200:
-        print("HF API Error:")
+        print("\nERROR RESPONSE:")
         print(response.text)
         return ""
 
@@ -217,66 +249,29 @@ Research Papers:
 
 def main():
 
-    with open(INPUT_FILE, "r", encoding="utf-8") as f:
-        reviewers = json.load(f)
+    print(f"\nProcessing Author ID: {AUTHOR_ID}")
 
-    output = []
+    try:
+        papers = fetch_author_papers(AUTHOR_ID)
 
-    total = len(reviewers)
+        print(f"\nTOTAL PAPERS FETCHED: {len(papers)}")
 
-    for idx, reviewer in enumerate(reviewers, start=1):
+        if not papers:
+            print("No papers found")
+            return
 
-        name = reviewer.get("name")
-        author_id = reviewer.get("openalex_author_id")
+        research_text = build_research_text(papers)
 
-        print(f"\n[{idx}/{total}] Processing: {name}")
+        summary = generate_summary(research_text)
 
-        if not author_id:
-            print("No OpenAlex author ID")
+        print("\n========================")
+        print("FINAL AUTHOR SUMMARY")
+        print("========================\n")
 
-            reviewer["work"] = ""
+        print(summary)
 
-            output.append(reviewer)
-
-            continue
-
-        try:
-            papers = fetch_author_papers(author_id)
-
-            print(f"Fetched {len(papers)} papers")
-
-            if not papers:
-                reviewer["work"] = ""
-                output.append(reviewer)
-                continue
-
-            research_text = build_research_text(papers)
-
-            summary = generate_summary(research_text)
-
-            reviewer["work"] = summary
-
-            output.append(reviewer)
-
-            time.sleep(1)
-
-        except Exception as e:
-
-            print(f"Error: {e}")
-
-            reviewer["work"] = ""
-
-            output.append(reviewer)
-
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(
-            output,
-            f,
-            indent=4,
-            ensure_ascii=False
-        )
-
-    print(f"\nSaved output to {OUTPUT_FILE}")
+    except Exception as e:
+        print(f"\nERROR: {e}")
 
 
 if __name__ == "__main__":

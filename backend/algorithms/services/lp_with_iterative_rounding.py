@@ -13,9 +13,9 @@ from gurobipy import Model, GRB, quicksum
 def load_data():
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT paper_id, researcher_id, similarity_score
-            FROM paper_to_reviewer
-            WHERE similarity_score IS NOT NULL
+            SELECT paper_id, reviewer_id, final_similarity
+            FROM paper_reviewer_affinity
+            WHERE final_similarity IS NOT NULL
         """)
         rows = cursor.fetchall()
 

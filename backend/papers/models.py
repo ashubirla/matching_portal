@@ -7,7 +7,6 @@ from django.contrib.auth.models import User
 class Paper(models.Model):
     title = models.CharField(max_length=500)
     abstract = models.TextField()
-    keywords = models.JSONField(default=list)
     pdf_url = models.URLField()
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,

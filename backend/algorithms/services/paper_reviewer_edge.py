@@ -2,189 +2,251 @@ import os
 import sys
 import django
 
+from tqdm import tqdm
+from django.db import connection
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "matching_portal.settings")
 django.setup()
 
-import json
-import numpy as np
-from django.db import connection
-from sentence_transformers import SentenceTransformer
-from tqdm import tqdm
-
-model = SentenceTransformer('all-MiniLM-L6-v2')
+from papers.models import Paper
+from accounts.models import Researcher
 
 
-def prepare_paper_reviewer_table():
+# Load embedding model
+print("Loading embedding model...")
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+def create_and_prepare_affinity_table():
+
     with connection.cursor() as cursor:
 
+        # Create table if it does not exist
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS paper_to_reviewer (
-                id BIGSERIAL PRIMARY KEY,
-                researcher_id BIGINT NOT NULL,
-                paper_id BIGINT NOT NULL,
-                similarity_score DOUBLE PRECISION,
+            CREATE TABLE IF NOT EXISTS paper_reviewer_affinity (
+                id SERIAL PRIMARY KEY,
+                paper_id INTEGER NOT NULL,
+                reviewer_id INTEGER NOT NULL,
+
+                abstract_work_similarity DOUBLE PRECISION NOT NULL,
+                institution_similarity DOUBLE PRECISION NOT NULL,
+                final_similarity DOUBLE PRECISION NOT NULL,
+
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                CONSTRAINT fk_researcher FOREIGN KEY (researcher_id) REFERENCES researchers (id),
-                CONSTRAINT fk_paper FOREIGN KEY (paper_id) REFERENCES papers (id),
-                CONSTRAINT unique_match UNIQUE (researcher_id, paper_id)
+
+                CONSTRAINT unique_paper_reviewer
+                UNIQUE (paper_id, reviewer_id),
+
+                CONSTRAINT fk_paper
+                FOREIGN KEY (paper_id)
+                REFERENCES papers(id)
+                ON DELETE CASCADE,
+
+                CONSTRAINT fk_reviewer
+                FOREIGN KEY (reviewer_id)
+                REFERENCES researchers(id)
+                ON DELETE CASCADE
             );
         """)
 
+        # Remove old rows
         cursor.execute("""
-            TRUNCATE TABLE paper_to_reviewer RESTART IDENTITY;
+            TRUNCATE TABLE paper_reviewer_affinity
+            RESTART IDENTITY;
         """)
 
-        cursor.execute("""
-            INSERT INTO paper_to_reviewer (researcher_id, paper_id)
-            SELECT r.id, p.id
-            FROM researchers r
-            CROSS JOIN papers p
-            WHERE r.is_reviewer = TRUE;
-        """)
-
-    print("paper_to_reviewer refreshed")
+    print("paper_reviewer_affinity table ready and truncated")
 
 
-def clean_text(text):
+def generate_embedding(text):
+
     if not text:
-        return ""
-    return str(text).lower().replace(",", " ").replace(";", " ")
+        return None
+
+    text = text.strip()
+
+    if not text:
+        return None
+
+    return model.encode(text)
 
 
-def parse_field(field):
-    if not field:
-        return ""
-    try:
-        data = json.loads(field)
-        if isinstance(data, list):
-            return " ".join(data)
-    except:
-        pass
-    return str(field)
+def compute_cosine_similarity(vec1, vec2):
 
-
-def get_overlap_score(inst1, inst2):
-    try:
-        set1 = set(json.loads(inst1))
-        set2 = set(json.loads(inst2))
-    except:
+    if vec1 is None or vec2 is None:
         return 0.0
 
-    if not set1 or not set2:
+    raw_score = cosine_similarity(
+        [vec1],
+        [vec2]
+    )[0][0]
+
+    # Normalize from [-1, 1] to [0, 1]
+    normalized_score = (raw_score + 1) / 2
+
+    return float(normalized_score)
+
+
+def compute_institution_similarity(
+    paper_affiliations,
+    reviewer_institutions
+):
+
+    if not paper_affiliations or not reviewer_institutions:
         return 0.0
 
-    intersection = len(set1 & set2)
-    union = len(set1 | set2)
+    # Normalize institution names
+    paper_set = set(
+        x.strip().lower()
+        for x in paper_affiliations
+        if x and x.strip()
+    )
+
+    reviewer_set = set(
+        x.strip().lower()
+        for x in reviewer_institutions
+        if x and x.strip()
+    )
+
+    if not paper_set or not reviewer_set:
+        return 0.0
+
+    intersection = len(
+        paper_set.intersection(reviewer_set)
+    )
+
+    union = len(
+        paper_set.union(reviewer_set)
+    )
 
     return intersection / union
 
 
-def compute_similarity_scores(batch_size=2000):
+def insert_affinity(
+    paper_id,
+    reviewer_id,
+    abstract_work_similarity,
+    institution_similarity,
+    final_similarity
+):
 
     with connection.cursor() as cursor:
+
         cursor.execute("""
-            SELECT ptr.id,
-                   p.keywords,
-                   r.research_interests,
-                   r.institutions,
-                   p.paper_affiliations
-            FROM paper_to_reviewer ptr
-            JOIN papers p ON ptr.paper_id = p.id
-            JOIN researchers r ON ptr.researcher_id = r.id
-            WHERE r.is_reviewer = TRUE;
-        """)
-        rows = cursor.fetchall()
+            INSERT INTO paper_reviewer_affinity
+            (
+                paper_id,
+                reviewer_id,
+                abstract_work_similarity,
+                institution_similarity,
+                final_similarity
+            )
 
-    if not rows:
-        print("No data found")
-        return {"status": "error", "message": "No data"}
-
-    print(f"Processing {len(rows)} pairs...")
-
-    similarities = []
-
-    for start in tqdm(range(0, len(rows), batch_size), desc="Processing batches"):
-
-        batch = rows[start:start + batch_size]
-
-        ids = []
-        paper_texts = []
-        reviewer_texts = []
-        r_inst_list = []
-        p_aff_list = []
-
-        for row in batch:
-            ptr_id, p_kw, r_int, r_inst, p_aff = row
-
-            p_kw = parse_field(p_kw)
-            r_int = parse_field(r_int)
-
-            paper_text = clean_text(p_kw)
-            reviewer_text = clean_text(r_int)
-
-            ids.append(ptr_id)
-            paper_texts.append(paper_text)
-            reviewer_texts.append(reviewer_text)
-
-            r_inst_list.append(r_inst)
-            p_aff_list.append(p_aff)
-
-        paper_emb = model.encode(paper_texts, batch_size=64, convert_to_numpy=True)
-        reviewer_emb = model.encode(reviewer_texts, batch_size=64, convert_to_numpy=True)
-
-        paper_emb /= np.linalg.norm(paper_emb, axis=1, keepdims=True)
-        reviewer_emb /= np.linalg.norm(reviewer_emb, axis=1, keepdims=True)
-
-        sims = np.sum(paper_emb * reviewer_emb, axis=1)
-
-        for i in range(len(ids)):
-            keyword_sim = float(max(0.0, min(1.0, sims[i])))
-
-            inst_overlap = get_overlap_score(r_inst_list[i], p_aff_list[i])
-
-            final_score = keyword_sim * (1 - inst_overlap)
-
-            similarities.append((final_score, ids[i]))
-
-    print("Bulk updating database...")
-
-    with connection.cursor() as cursor:
-        cursor.executemany("""
-            UPDATE paper_to_reviewer
-            SET similarity_score = %s
-            WHERE id = %s
-        """, similarities)
-
-    print(f"Updated {len(similarities)} similarity scores")
-
-    return {
-        "status": "success",
-        "updated": len(similarities)
-    }
+            VALUES (%s, %s, %s, %s, %s);
+        """, [
+            paper_id,
+            reviewer_id,
+            abstract_work_similarity,
+            institution_similarity,
+            final_similarity
+        ])
 
 
 def main():
 
-    steps = [
-        "Prepare Table",
-        "Compute Similarity"
-    ]
+    create_and_prepare_affinity_table()
 
-    overall = tqdm(total=len(steps), desc="Overall Progress")
+    papers = Paper.objects.exclude(
+        abstract__isnull=True
+    ).exclude(
+        abstract=""
+    )
 
-    print("\nStep 1: Preparing table...")
-    prepare_paper_reviewer_table()
-    overall.update(1)
+    reviewers = Researcher.objects.filter(
+        is_reviewer=True
+    ).exclude(
+        work__isnull=True
+    ).exclude(
+        work=""
+    )
 
-    print("\nStep 2: Computing similarity...")
-    result = compute_similarity_scores()
-    overall.update(1)
+    print(f"\nTotal Papers: {papers.count()}")
+    print(f"Total Reviewers: {reviewers.count()}")
 
-    overall.close()
+    # Precompute reviewer embeddings
+    reviewer_embeddings = {}
 
-    print("\nCompleted!")
-    return result
+    print("\nGenerating reviewer embeddings...")
+
+    for reviewer in tqdm(
+        reviewers,
+        desc="Reviewers"
+    ):
+
+        reviewer_embeddings[reviewer.id] = generate_embedding(
+            reviewer.work
+        )
+
+    pair_count = 0
+
+    print("\nComputing affinities...")
+
+    for paper in tqdm(
+        papers,
+        desc="Papers"
+    ):
+
+        paper_embedding = generate_embedding(
+            paper.abstract
+        )
+
+        paper_affiliations = (
+            paper.paper_affiliations or []
+        )
+
+        for reviewer in reviewers:
+
+            reviewer_embedding = reviewer_embeddings.get(
+                reviewer.id
+            )
+
+            reviewer_institutions = (
+                reviewer.institutions or []
+            )
+
+            # Semantic similarity
+            abstract_work_similarity = compute_cosine_similarity(
+                paper_embedding,
+                reviewer_embedding
+            )
+
+            # Institution overlap penalty
+            institution_similarity = compute_institution_similarity(
+                paper_affiliations,
+                reviewer_institutions
+            )
+
+            # Penalized similarity
+            final_similarity = (
+                abstract_work_similarity
+                * (1 - institution_similarity)
+            )
+
+            insert_affinity(
+                paper.id,
+                reviewer.id,
+                abstract_work_similarity,
+                institution_similarity,
+                final_similarity
+            )
+
+            pair_count += 1
+
+    print("\nAffinity computation complete")
+    print(f"Total pairs processed: {pair_count}")
 
 
 if __name__ == "__main__":

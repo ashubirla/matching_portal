@@ -16,6 +16,7 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 
 
 def prepare_reviewer_graph():
+
     with connection.cursor() as cursor:
 
         cursor.execute("""
@@ -23,24 +24,44 @@ def prepare_reviewer_graph():
                 id BIGSERIAL PRIMARY KEY,
                 reviewer_id_left BIGINT NOT NULL,
                 reviewer_id_right BIGINT NOT NULL,
+
+                work_similarity DOUBLE PRECISION,
+                institution_similarity DOUBLE PRECISION,
                 edge_weight DOUBLE PRECISION,
+
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                CONSTRAINT fk_left FOREIGN KEY (reviewer_id_left) REFERENCES researchers (id),
-                CONSTRAINT fk_right FOREIGN KEY (reviewer_id_right) REFERENCES researchers (id),
-                CONSTRAINT unique_pair UNIQUE (reviewer_id_left, reviewer_id_right)
+
+                CONSTRAINT fk_left
+                FOREIGN KEY (reviewer_id_left)
+                REFERENCES researchers (id),
+
+                CONSTRAINT fk_right
+                FOREIGN KEY (reviewer_id_right)
+                REFERENCES researchers (id),
+
+                CONSTRAINT unique_pair
+                UNIQUE (reviewer_id_left, reviewer_id_right)
             );
         """)
 
         cursor.execute("""
-            TRUNCATE TABLE reviewer_to_reviewer RESTART IDENTITY;
+            TRUNCATE TABLE reviewer_to_reviewer
+            RESTART IDENTITY;
         """)
 
         cursor.execute("""
-            INSERT INTO reviewer_to_reviewer (reviewer_id_left, reviewer_id_right)
+            INSERT INTO reviewer_to_reviewer
+            (
+                reviewer_id_left,
+                reviewer_id_right
+            )
+
             SELECT r1.id, r2.id
+
             FROM researchers r1
             JOIN researchers r2
             ON r1.id < r2.id
+
             WHERE r1.is_reviewer = TRUE
               AND r2.is_reviewer = TRUE;
         """)
@@ -49,49 +70,100 @@ def prepare_reviewer_graph():
 
 
 def parse_list_field(field):
+
     if not field:
         return []
+
     try:
         data = json.loads(field)
+
         if isinstance(data, list):
             return [str(x).lower() for x in data]
+
     except:
         pass
+
     return [str(field).lower()]
 
 
-def clean_join(lst):
-    return " ".join(lst)
+def clean_text(text):
+
+    if not text:
+        return ""
+
+    return str(text).strip()
 
 
 def jaccard_similarity(list1, list2):
+
     set1, set2 = set(list1), set(list2)
+
     if not set1 or not set2:
         return 0.0
+
     return len(set1 & set2) / len(set1 | set2)
 
 
 def compute_embedding_similarity(texts1, texts2):
-    emb1 = model.encode(texts1, batch_size=64, convert_to_numpy=True)
-    emb2 = model.encode(texts2, batch_size=64, convert_to_numpy=True)
 
-    emb1 /= np.linalg.norm(emb1, axis=1, keepdims=True)
-    emb2 /= np.linalg.norm(emb2, axis=1, keepdims=True)
+    emb1 = model.encode(
+        texts1,
+        batch_size=64,
+        convert_to_numpy=True
+    )
 
-    return np.sum(emb1 * emb2, axis=1)
+    emb2 = model.encode(
+        texts2,
+        batch_size=64,
+        convert_to_numpy=True
+    )
+
+    emb1 /= np.linalg.norm(
+        emb1,
+        axis=1,
+        keepdims=True
+    )
+
+    emb2 /= np.linalg.norm(
+        emb2,
+        axis=1,
+        keepdims=True
+    )
+
+    raw_sims = np.sum(
+        emb1 * emb2,
+        axis=1
+    )
+
+    # Normalize from [-1,1] -> [0,1]
+    normalized_sims = (raw_sims + 1) / 2
+
+    return normalized_sims
 
 
 def compute_reviewer_similarity(batch_size=2000):
 
     with connection.cursor() as cursor:
+
         cursor.execute("""
-            SELECT rtr.id,
-                   r1.research_interests, r1.institutions,
-                   r2.research_interests, r2.institutions
+            SELECT
+                rtr.id,
+
+                r1.work,
+                r1.institutions,
+
+                r2.work,
+                r2.institutions
+
             FROM reviewer_to_reviewer rtr
-            JOIN researchers r1 ON rtr.reviewer_id_left = r1.id
-            JOIN researchers r2 ON rtr.reviewer_id_right = r2.id
+
+            JOIN researchers r1
+            ON rtr.reviewer_id_left = r1.id
+
+            JOIN researchers r2
+            ON rtr.reviewer_id_right = r2.id
         """)
+
         rows = cursor.fetchall()
 
     if not rows:
@@ -102,49 +174,99 @@ def compute_reviewer_similarity(batch_size=2000):
 
     similarities = []
 
-    for start in tqdm(range(0, len(rows), batch_size), desc="Processing batches"):
+    for start in tqdm(
+        range(0, len(rows), batch_size),
+        desc="Processing batches"
+    ):
 
         batch = rows[start:start + batch_size]
 
         ids = []
 
-        int_left, int_right = [], []
-        inst_sims = []
+        left_work_texts = []
+        right_work_texts = []
+
+        institution_sims = []
 
         for row in batch:
-            rtr_id, l_int, l_inst, r_int, r_inst = row
 
-            l_int_list = parse_list_field(l_int)
-            r_int_list = parse_list_field(r_int)
+            (
+                rtr_id,
 
-            l_inst_list = parse_list_field(l_inst)
-            r_inst_list = parse_list_field(r_inst)
+                left_work,
+                left_institutions,
+
+                right_work,
+                right_institutions
+
+            ) = row
+
+            left_institutions = parse_list_field(
+                left_institutions
+            )
+
+            right_institutions = parse_list_field(
+                right_institutions
+            )
 
             ids.append(rtr_id)
 
-            int_left.append(clean_join(l_int_list))
-            int_right.append(clean_join(r_int_list))
+            left_work_texts.append(
+                clean_text(left_work)
+            )
 
-            inst_sims.append(jaccard_similarity(l_inst_list, r_inst_list))
+            right_work_texts.append(
+                clean_text(right_work)
+            )
 
-        int_sims = compute_embedding_similarity(int_left, int_right)
-        inst_sims = np.array(inst_sims)
+            institution_sims.append(
+                jaccard_similarity(
+                    left_institutions,
+                    right_institutions
+                )
+            )
+
+        work_sims = compute_embedding_similarity(
+            left_work_texts,
+            right_work_texts
+        )
+
+        institution_sims = np.array(
+            institution_sims
+        )
 
         for i in range(len(ids)):
 
-            interest_sim = float(max(0.0, min(1.0, int_sims[i])))
-            inst_sim = inst_sims[i]
+            work_sim = float(work_sims[i])
 
-            final_score = interest_sim * (1 - inst_sim)
+            inst_sim = float(institution_sims[i])
 
-            similarities.append((final_score, ids[i]))
+            final_score = (
+                work_sim
+                +inst_sim
+            )
+
+            similarities.append(
+                (
+                    work_sim,
+                    inst_sim,
+                    final_score,
+                    ids[i]
+                )
+            )
 
     print("Updating edge weights...")
 
     with connection.cursor() as cursor:
+
         cursor.executemany("""
             UPDATE reviewer_to_reviewer
-            SET edge_weight = %s
+
+            SET
+                work_similarity = %s,
+                institution_similarity = %s,
+                edge_weight = %s
+
             WHERE id = %s
         """, similarities)
 
@@ -163,7 +285,10 @@ def main():
         "Compute Similarity"
     ]
 
-    overall = tqdm(total=len(steps), desc="Overall Progress")
+    overall = tqdm(
+        total=len(steps),
+        desc="Overall Progress"
+    )
 
     print("\nStep 1: Preparing reviewer graph...")
     prepare_reviewer_graph()
@@ -176,6 +301,7 @@ def main():
     overall.close()
 
     print("\nCompleted!")
+
     return result
 
 

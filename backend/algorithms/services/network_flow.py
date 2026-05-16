@@ -10,9 +10,9 @@ from django.db import connection, transaction
 def load_paper_reviewer_edges():
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT paper_id, researcher_id, similarity_score
-            FROM paper_to_reviewer
-            WHERE similarity_score IS NOT NULL
+            SELECT paper_id, reviewer_id, final_similarity
+            FROM paper_reviewer_affinity
+            WHERE final_similarity IS NOT NULL
         """)
         rows = cursor.fetchall()
     return [(int(row[0]), int(row[1]), float(row[2])) for row in rows]
@@ -129,7 +129,7 @@ def main():
     score, assignment = solve(papers, reviewers, paper_to_reviewers, k, c)
     if assignment:
         paper_sums = [sum(weight_lookup[(p, r)] for r in reviewers) for p, reviewers in assignment.items()] 
-        min_sum = min(paper_sums) + 0.09
+        min_sum = min(paper_sums)
         print(f"Minimum Sum assigned to a paper: {round(min_sum, 4)}")
         save_iterative_allocation(assignment)
     else:
