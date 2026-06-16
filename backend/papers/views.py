@@ -1,6 +1,10 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from rest_framework import status
 from .models import Paper
 from .serializers import PaperSerializer, PaperCreateSerializer
 from accounts.models import Researcher
@@ -9,6 +13,27 @@ from accounts.models import Researcher
 STATUS_SUBMITTED = "submitted"
 STATUS_UNDER_REVIEW = "Under review"
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_paper_detail(request, paper_id):
+
+    paper = get_object_or_404(
+        Paper,
+        id=paper_id
+    )
+
+    return Response({
+        "status": True,
+        "paper": {
+            "id": paper.id,
+            "title": paper.title,
+            "abstract": paper.abstract,
+            "author_names": paper.author_names,
+            "paper_affiliations": paper.paper_affiliations,
+            "status": paper.status,
+            "pdf_url": paper.pdf_url,
+        }
+    })
 
 class PaperCreateView(generics.CreateAPIView):
     serializer_class = PaperCreateSerializer
@@ -58,3 +83,5 @@ class PaperDetailView(generics.RetrieveAPIView):
         if self.request.user.is_staff:
             return Paper.objects.all()
         return Paper.objects.filter(author=self.request.user)
+    
+    

@@ -11,6 +11,7 @@ from .services.reviewer_reviewer_edge import main as run_reviewer_edge
 from .services.lp_with_iterative_rounding import main as run_lp_with_iterative_rounding
 from .services.Iterative_max_flow_fair import main as run_iterative_assignment_algo
 from .services.network_flow import main as run_network_flow
+from .services.paper_reviewer_edge_hard import main as run_similarity_hard
 
 
 STATUS_SUBMITTED = "submitted"
@@ -65,6 +66,18 @@ def run_similarity_api(request):
     try:
         with transaction.atomic():
             result = run_similarity()
+            Paper.objects.filter(status=STATUS_SUBMITTED).update(status=STATUS_UNDER_REVIEW)
+        return Response(result)
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=500)
+    
+   
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def run_similarity_hard_api(request):
+    try:
+        with transaction.atomic():
+            result = run_similarity_hard()
             Paper.objects.filter(status=STATUS_SUBMITTED).update(status=STATUS_UNDER_REVIEW)
         return Response(result)
     except Exception as e:

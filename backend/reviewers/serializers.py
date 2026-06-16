@@ -39,3 +39,51 @@ class SubmitReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = FinalAssignment
         fields = ["paper_score", "comments"]
+
+class AssignmentDashboardSerializer(serializers.ModelSerializer):
+
+    paper_id = serializers.IntegerField(
+        source="paper_id.id",
+        read_only=True
+    )
+
+    paper_title = serializers.CharField(
+        source="paper_id.title",
+        read_only=True
+    )
+
+    reviewer_id = serializers.IntegerField(
+        source="reviewer_id.id",
+        read_only=True
+    )
+
+    reviewer_email = serializers.EmailField(
+        source="reviewer_id.email",
+        read_only=True
+    )
+
+    reviewer_name = serializers.SerializerMethodField()
+
+    def get_reviewer_name(self, obj):
+        try:
+            return obj.reviewer_id.researcher.name
+        except Exception:
+            return obj.reviewer_id.email
+
+    class Meta:
+        model = FinalAssignment
+
+        fields = [
+            "id",
+
+            "paper_id",
+            "paper_title",
+
+            "reviewer_id",
+            "reviewer_name",
+            "reviewer_email",
+
+            "reviewer_status",
+            "paper_score",
+            "comments",
+        ]

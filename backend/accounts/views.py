@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from django.shortcuts import get_object_or_404
 from accounts.serializers import (
     RegisterSerializer,
     LoginSerializer,
@@ -15,6 +15,28 @@ from accounts.models import Researcher
 
 User = get_user_model()
 
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def reviewer_detail(request, reviewer_id):
+
+    researcher = get_object_or_404(
+        Researcher.objects.select_related("user"),
+        user_id=reviewer_id
+    )
+
+    return Response({
+        "status": True,
+        "reviewer": {
+            "id": researcher.user.id,
+            "name": researcher.name,
+            "email": researcher.user.email,
+            "institutions": researcher.institutions,
+            "work": researcher.work,
+            "is_reviewer": researcher.is_reviewer,
+        }
+    })
 
 @api_view(["POST"])
 def register(request):
