@@ -1,14 +1,14 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
-/* Public pages */
+/* Public Pages */
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import AdminLogin from "./pages/AdminLogin";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 
-/* Route protection */
+/* Route Protection */
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 /* Author */
@@ -35,19 +35,26 @@ import AdminAssign from "./pages/admin/Assign";
 import AdminDecisions from "./pages/admin/Decisions";
 import ShowAssignments from "./pages/admin/ShowAssignments";
 
+/* NEW Assignment Dashboard */
+import AssignmentDashboard from "./pages/admin/AssignmentDashboard";
+
 /* Profile */
 import EditProfile from "./pages/profile/EditProfile";
 
 export default function App() {
   return (
     <Routes>
-      {/* PUBLIC */}
+      {/* =======================================
+          PUBLIC ROUTES
+      ======================================= */}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/adminlogin" element={<AdminLogin />} />
       <Route path="/register" element={<Register />} />
 
-      {/* AUTHOR */}
+      {/* =======================================
+          AUTHOR ROUTES
+      ======================================= */}
       <Route
         path="/author/*"
         element={
@@ -59,11 +66,19 @@ export default function App() {
         <Route path="dashboard" element={<AuthorDashboard />} />
         <Route path="submit" element={<SubmitPaper />} />
         <Route path="submissions" element={<AuthorSubmissions />} />
-        <Route path="submissions/:paperId" element={<SubmissionDetails />} />
-        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route
+          path="submissions/:paperId"
+          element={<SubmissionDetails />}
+        />
+        <Route
+          index
+          element={<Navigate to="dashboard" replace />}
+        />
       </Route>
 
-      {/* REVIEWER */}
+      {/* =======================================
+          REVIEWER ROUTES
+      ======================================= */}
       <Route
         path="/reviewer/*"
         element={
@@ -75,12 +90,23 @@ export default function App() {
         <Route path="dashboard" element={<ReviewerDashboard />} />
         <Route path="profile" element={<ReviewerProfile />} />
         <Route path="assigned" element={<ReviewerAssigned />} />
-        <Route path="paper/:paperId" element={<ReviewerPaperDetails />} />
-        <Route path="review/:paperId" element={<ReviewForm />} />
-        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route
+          path="paper/:paperId"
+          element={<ReviewerPaperDetails />}
+        />
+        <Route
+          path="review/:paperId"
+          element={<ReviewForm />}
+        />
+        <Route
+          index
+          element={<Navigate to="dashboard" replace />}
+        />
       </Route>
 
-      {/* ADMIN */}
+      {/* =======================================
+          ADMIN ROUTES
+      ======================================= */}
       <Route
         path="/admin/*"
         element={
@@ -89,29 +115,75 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="dashboard" element={<AdminDashboard />} />
-        <Route path="submissions" element={<AdminSubmissions />} />
-        <Route path="reviewers" element={<AdminReviewers />} />
-        <Route path="assign" element={<AdminAssign />} />
-        <Route path="decisions" element={<AdminDecisions />} />
+        {/* Main Dashboard */}
+        <Route
+          path="dashboard"
+          element={<AdminDashboard />}
+        />
 
-        {/* 🔥 YOUR NEW PAGE */}
-        <Route path="assignments" element={<ShowAssignments />} />
+        {/* Papers */}
+        <Route
+          path="submissions"
+          element={<AdminSubmissions />}
+        />
 
-        <Route index element={<Navigate to="dashboard" replace />} />
+        {/* Review Committee */}
+        <Route
+          path="reviewers"
+          element={<AdminReviewers />}
+        />
+
+        {/* Reviewer Assignment Tool */}
+        <Route
+          path="assign"
+          element={<AdminAssign />}
+        />
+
+        {/* Existing Assignments Page */}
+        <Route
+          path="assignments"
+          element={<ShowAssignments />}
+        />
+
+        {/* NEW Assignment Dashboard */}
+        <Route
+          path="assignmentDashboard"
+          element={<AssignmentDashboard />}
+        />
+
+        {/* Decisions */}
+        <Route
+          path="decisions"
+          element={<AdminDecisions />}
+        />
+
+        <Route
+          index
+          element={<Navigate to="dashboard" replace />}
+        />
       </Route>
 
-      {/* PROFILE */}
+      {/* =======================================
+          PROFILE
+      ======================================= */}
       <Route
         path="/profile"
         element={
-          <ProtectedRoute allowedRoles={["author", "reviewer", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={[
+              "author",
+              "reviewer",
+              "admin",
+            ]}
+          >
             <EditProfile />
           </ProtectedRoute>
         }
       />
 
-      {/* FALLBACK */}
+      {/* =======================================
+          404 PAGE
+      ======================================= */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

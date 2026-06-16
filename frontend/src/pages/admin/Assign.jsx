@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import api from "../api";
 
@@ -6,64 +7,126 @@ export default function AdminAssign() {
   const [loading, setLoading] = useState(false);
   const [crossJoinReady, setCrossJoinReady] = useState(false);
 
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState("");
+  const [selectedEdgeWeight, setSelectedEdgeWeight] = useState("");
+
   useEffect(() => {
     async function checkTable() {
       try {
-        const res = await api.get("/api/check_edge_weight_table/");
+        const res = await api.get(
+          "/api/check_edge_weight_table/"
+        );
+
         if (res.data.doesExist) {
           setCrossJoinReady(true);
         }
       } catch (err) {
-        console.error("Error checking table:", err);
+        console.error(
+          "Error checking table:",
+          err
+        );
       }
     }
 
     checkTable();
   }, []);
 
-  // ✅ Paper-Reviewer Edge Weights
+  // ----------------------------------
+  // Soft Paper-Reviewer Edge Weights
+  // ----------------------------------
+
   async function generateCrossJoin() {
     if (crossJoinReady) {
       const confirmAction = window.confirm(
-        "Edge weights already exist. Regenerating will overwrite and may take time. Continue?"
+        "Edge weights already exist. Regenerating will overwrite existing data. Continue?"
       );
+
       if (!confirmAction) return;
     }
 
     setLoading(true);
 
     try {
-      console.log("Generating paper-reviewer edge weights...");
+      const res = await api.post(
+        "/api/run_edge_weights/"
+      );
 
-      const res = await api.post("/api/run_edge_weights/");
-      console.log("Response:", res.data);
+      console.log(
+        "Paper-Reviewer Soft Weights:",
+        res.data
+      );
 
       setCrossJoinReady(true);
+
+      alert(
+        "Paper-Reviewer (Soft Constraint) edge weights generated successfully."
+      );
     } catch (err) {
-      console.error("Error generating edge weights:", err);
+      console.error(err);
 
       alert(
         err.response?.data?.message ||
-        "Failed to generate edge weights. Check backend."
+        "Failed to generate edge weights."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  // ✅ NEW: Reviewer-Reviewer Edge Weights
+  // ----------------------------------
+  // Hard Paper-Reviewer Edge Weights
+  // ----------------------------------
+
+  async function generateHardSimilarityWeights() {
+    setLoading(true);
+
+    try {
+      const res = await api.post(
+        "/api/run_edge_weights_hard/"
+      );
+
+      console.log(
+        "Paper-Reviewer Hard Weights:",
+        res.data
+      );
+
+      alert(
+        "Paper-Reviewer (Hard Constraint) edge weights generated successfully."
+      );
+    } catch (err) {
+      console.error(err);
+
+      alert(
+        err.response?.data?.message ||
+        "Failed to generate hard constraint edge weights."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ----------------------------------
+  // Reviewer-Reviewer Edge Weights
+  // ----------------------------------
+
   async function generateReviewerEdgeWeights() {
     setLoading(true);
 
     try {
-      console.log("Generating reviewer-reviewer edge weights...");
+      const res = await api.post(
+        "/api/run_reviewer_edge_weights/"
+      );
 
-      const res = await api.post("/api/run_reviewer_edge_weights/");
-      console.log("Response:", res.data);
+      console.log(
+        "Reviewer-Reviewer Weights:",
+        res.data
+      );
 
-      alert("Reviewer-Reviewer edge weights generated successfully!");
+      alert(
+        "Reviewer-Reviewer edge weights generated successfully."
+      );
     } catch (err) {
-      console.error("Error generating reviewer edge weights:", err);
+      console.error(err);
 
       alert(
         err.response?.data?.message ||
@@ -74,36 +137,56 @@ export default function AdminAssign() {
     }
   }
 
-  // ✅ Algorithms
+  // ----------------------------------
+  // Algorithms
+  // ----------------------------------
+
   async function runAlgorithm(algoKey) {
     setLoading(true);
     setResult(null);
 
     try {
-      console.log(`Running ${algoKey} algorithm...`);
-
       let endpoint = "";
 
-      if (algoKey === "ILP") {
-        endpoint = "/api/run_ilp/";
-      } else if (algoKey === "LP_with_iterative_rounding") {
-        endpoint = "/api/run_lp_with_iterative_rounding/";
-      } else if (algoKey === "NF") {
-        endpoint = "/api/run_network_flow/";
-      } else if (algoKey === "IA") {
-        endpoint = "/api/iterative_assignment/";
+      switch (algoKey) {
+        case "ILP":
+          endpoint = "/api/run_ilp/";
+          break;
+
+        case "LP_with_iterative_rounding":
+          endpoint =
+            "/api/run_lp_with_iterative_rounding/";
+          break;
+
+        case "NF":
+          endpoint = "/api/run_network_flow/";
+          break;
+
+        case "IA":
+          endpoint =
+            "/api/iterative_assignment/";
+          break;
+
+        default:
+          throw new Error(
+            "Invalid algorithm selected"
+          );
       }
 
       const res = await api.post(endpoint);
-      console.log("Result:", res.data);
+
+      console.log(
+        "Algorithm Result:",
+        res.data
+      );
 
       setResult(res.data);
     } catch (err) {
-      console.error("Algorithm error:", err);
+      console.error(err);
 
       alert(
         err.response?.data?.message ||
-        "Algorithm failed. Check backend."
+        "Algorithm execution failed."
       );
     } finally {
       setLoading(false);
@@ -111,112 +194,242 @@ export default function AdminAssign() {
   }
 
   return (
-    <div className="rounded-3xl border bg-white p-6 shadow-sm space-y-6">
-      <h2 className="text-xl font-semibold">Reviewer Assignment</h2>
+    <div
+      className="
+        max-w-6xl
+        mx-auto
+        rounded-3xl
+        border
+        bg-white
+        p-8
+        shadow-lg
+        space-y-8
+      "
+    >
+      {/* Header */}
 
-      {/* 🔷 ILP Section */}
-      <div className="border rounded-2xl p-4 bg-gray-50 space-y-4">
-        <h3 className="text-md font-semibold text-gray-800">
-          ILP-based Algorithms
-        </h3>
+      <div>
+        <h2 className="text-3xl font-bold text-gray-900">
+          Reviewer Assignment Dashboard
+        </h2>
 
-        <div>
-          <button
-            onClick={generateCrossJoin}
-            disabled={loading}
-            className={`rounded-xl px-4 py-2 text-white ${loading ? "bg-blue-300" : "bg-blue-600"
-              }`}
+        <p className="text-gray-500 mt-2">
+          Generate edge weights and run
+          reviewer assignment algorithms.
+        </p>
+      </div>
+
+      {/* Main Cards */}
+
+      <div className="grid md:grid-cols-2 gap-6">
+
+        {/* Edge Weight Generation */}
+
+        <div className="border rounded-3xl p-6 bg-gray-50 shadow-sm space-y-4">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Edge Weight Generation
+          </h3>
+
+          <select
+            value={selectedEdgeWeight}
+            onChange={(e) =>
+              setSelectedEdgeWeight(
+                e.target.value
+              )
+            }
+            className="
+              w-full
+              rounded-xl
+              border
+              border-gray-300
+              p-3
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+            "
           >
-            Assign Paper-Reviewer Edge Weights
+            <option value="">
+              Select Edge Weight Type
+            </option>
+
+            <option value="paperReviewer">
+              Paper → Reviewer Edge Weights (Soft Constraint)
+            </option>
+
+            <option value="paperReviewerHard">
+              Paper → Reviewer Edge Weights (Hard Constraint)
+            </option>
+
+            <option value="reviewerReviewer">
+              Reviewer → Reviewer Edge Weights
+            </option>
+          </select>
+
+          <button
+            disabled={
+              !selectedEdgeWeight || loading
+            }
+            onClick={() => {
+              switch (selectedEdgeWeight) {
+                case "paperReviewer":
+                  generateCrossJoin();
+                  break;
+
+                case "paperReviewerHard":
+                  generateHardSimilarityWeights();
+                  break;
+
+                case "reviewerReviewer":
+                  generateReviewerEdgeWeights();
+                  break;
+
+                default:
+                  break;
+              }
+            }}
+            className={`
+              w-full
+              py-3
+              rounded-xl
+              text-white
+              font-medium
+              transition
+              ${!selectedEdgeWeight || loading
+                ? "bg-gray-400"
+                : "bg-blue-600 hover:bg-blue-700"
+              }
+            `}
+          >
+            Generate
           </button>
 
           {crossJoinReady && (
-            <span className="ml-3 text-green-600 text-sm">✔ Ready</span>
+            <div className="text-green-600 text-sm font-medium">
+              ✔ Paper-Reviewer edge weight table detected
+            </div>
           )}
         </div>
 
-        <div className="flex gap-3 flex-wrap">
-          <button
-            disabled={!crossJoinReady || loading}
-            onClick={() => runAlgorithm("ILP")}
-            className={`px-4 py-2 rounded-xl text-white ${crossJoinReady && !loading
-                ? "bg-gray-900"
-                : "bg-gray-400 cursor-not-allowed"
-              }`}
+        {/* Algorithm Card */}
+
+        <div className="border rounded-3xl p-6 bg-gray-50 shadow-sm space-y-4">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Assignment Algorithms
+          </h3>
+
+          <select
+            value={selectedAlgorithm}
+            onChange={(e) =>
+              setSelectedAlgorithm(
+                e.target.value
+              )
+            }
+            className="
+              w-full
+              rounded-xl
+              border
+              border-gray-300
+              p-3
+              focus:outline-none
+              focus:ring-2
+              focus:ring-gray-700
+            "
           >
-            Run ILP
-          </button>
+            <option value="">
+              Select Algorithm
+            </option>
+
+            <option value="ILP">
+              Integer Linear Programming (ILP)
+            </option>
+
+            <option value="LP_with_iterative_rounding">
+              LP with Iterative Rounding
+            </option>
+
+            <option value="NF">
+              Network Flow
+            </option>
+
+            <option value="IA">
+              Iterative Assignment
+            </option>
+          </select>
 
           <button
-            disabled={!crossJoinReady || loading}
-            onClick={() => runAlgorithm("LP_with_iterative_rounding")}
-            className={`px-4 py-2 rounded-xl text-white ${crossJoinReady && !loading
-                ? "bg-gray-900"
-                : "bg-gray-400 cursor-not-allowed"
-              }`}
+            disabled={
+              !selectedAlgorithm || loading
+            }
+            onClick={() =>
+              runAlgorithm(
+                selectedAlgorithm
+              )
+            }
+            className={`
+              w-full
+              py-3
+              rounded-xl
+              text-white
+              font-medium
+              transition
+              ${!selectedAlgorithm || loading
+                ? "bg-gray-400"
+                : "bg-gray-900 hover:bg-black"
+              }
+            `}
           >
-            Run LP with Iterative Rounding
+            Run Algorithm
           </button>
         </div>
       </div>
 
-      {/* 🔷 Other Algorithms */}
-      <div className="border rounded-2xl p-4 bg-gray-50 space-y-3">
-        <h3 className="text-md font-semibold text-gray-800">
-          Other Algorithms
-        </h3>
+      {/* Loading State */}
 
-        <div className="flex gap-3 flex-wrap">
-          <button
-            disabled={loading}
-            onClick={() => runAlgorithm("NF")}
-            className={`px-4 py-2 rounded-xl text-white ${loading ? "bg-gray-400" : "bg-gray-900"
-              }`}
-          >
-            Network Flow
-          </button>
-
-          <button
-            disabled={loading}
-            onClick={() => runAlgorithm("IA")}
-            className={`px-4 py-2 rounded-xl text-white ${loading ? "bg-gray-400" : "bg-gray-900"
-              }`}
-          >
-            Iterative Assignment
-          </button>
-
-          {/* ✅ NEW BUTTON */}
-          <button
-            disabled={loading}
-            onClick={generateReviewerEdgeWeights}
-            className={`px-4 py-2 rounded-xl text-white ${loading ? "bg-gray-400" : "bg-blue-600"
-              }`}
-          >
-            Assign Reviewer-Reviewer Edge Weights
-          </button>
-        </div>
-      </div>
-
-      {/* 🔄 Loading */}
       {loading && (
-        <div className="text-sm text-gray-600 animate-pulse">
-          Processing...
+        <div className="flex items-center gap-3 text-blue-600">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+
+          <span>
+            Processing... This may take several
+            minutes depending on dataset size.
+          </span>
         </div>
       )}
 
-      {/* 📊 Results */}
-      {Array.isArray(result) && result.length > 0 && (
-        <div className="space-y-2">
-          {result.map((r) => (
-            <div key={r.id} className="border p-3 rounded">
-              <div className="font-medium">{r.id}</div>
-              <div className="text-sm text-gray-600">
-                {r.assignedReviewers?.join(", ")}
-              </div>
+      {/* Results */}
+
+      {Array.isArray(result) &&
+        result.length > 0 && (
+          <div className="border rounded-3xl p-6 bg-gray-50">
+            <h3 className="text-lg font-semibold mb-4">
+              Assignment Results
+            </h3>
+
+            <div className="space-y-3">
+              {result.map((r) => (
+                <div
+                  key={r.id}
+                  className="
+                    border
+                    rounded-xl
+                    bg-white
+                    p-4
+                  "
+                >
+                  <div className="font-medium">
+                    {r.id}
+                  </div>
+
+                  <div className="text-sm text-gray-600 mt-1">
+                    {r.assignedReviewers?.join(
+                      ", "
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
     </div>
   );
 }

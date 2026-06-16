@@ -1,42 +1,86 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 
-function Item({ to, label }) {
+function Item({ to, label, icon, collapsed }) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `block rounded-xl px-3 py-2 text-sm font-medium transition ${isActive
-          ? "bg-gray-900 text-white"
+        `flex items-center ${collapsed ? "justify-center" : "gap-3"
+        } rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${isActive
+          ? "bg-gray-900 text-white shadow-sm"
           : "text-gray-700 hover:bg-gray-100"
         }`
       }
+      title={collapsed ? label : ""}
     >
-      {label}
+      <span className="text-base">{icon}</span>
+      {!collapsed && <span>{label}</span>}
     </NavLink>
   );
 }
 
-export default function Sidebar({ role, open, onClose }) {
+export default function Sidebar({
+  role,
+  open,
+  onClose,
+  collapsed,
+  setCollapsed,
+}) {
   const menus = {
     author: [
-      { to: "/author/dashboard", label: "Dashboard" },
-      { to: "/author/submit", label: "Submit Paper" },
-      { to: "/author/submissions", label: "My Submissions" },
+      {
+        to: "/author/dashboard",
+        label: "Dashboard",
+        icon: "📊",
+      },
+      {
+        to: "/author/submit",
+        label: "Submit Paper",
+        icon: "📄",
+      },
+      {
+        to: "/author/submissions",
+        label: "My Submissions",
+        icon: "📚",
+      },
     ],
+
     reviewer: [
-      { to: "/reviewer/dashboard", label: "Dashboard" }
+      {
+        to: "/reviewer/dashboard",
+        label: "Dashboard",
+        icon: "🔍",
+      },
     ],
+
     admin: [
-      { to: "/admin/dashboard", label: "Dashboard" },
-      { to: "/admin/reviewers", label: "Reviewers" },
-      { to: "/admin/assign", label: "Assignment Algorithms" },
+      {
+        to: "/admin/dashboard",
+        label: "Submitted Papers",
+        icon: "📄",
+      },
+      {
+        to: "/admin/reviewers",
+        label: "Review Committee",
+        icon: "👨‍🔬",
+      },
+      {
+        to: "/admin/assign",
+        label: "Paper Assignment",
+        icon: "📌",
+      },
+      {
+        to: "/admin/assignmentDashboard",
+        label: "Show Assignments",
+        icon: "📈",
+      },
     ],
   };
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Mobile Overlay */}
       {open && (
         <div
           className="fixed inset-0 z-30 bg-black/40 md:hidden"
@@ -45,43 +89,66 @@ export default function Sidebar({ role, open, onClose }) {
       )}
 
       <aside
-        className={`fixed left-0 top-0 z-40 h-full w-72 border-r bg-white p-4 transition-transform
-        md:translate-x-0 md:static
-        ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`
+          fixed left-0 top-0 z-40 h-full
+          ${collapsed ? "w-20" : "w-72"}
+          border-r border-gray-200 bg-white
+          transition-all duration-300
+          md:translate-x-0 md:static
+          ${open ? "translate-x-0" : "-translate-x-full"}
+        `}
       >
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-gray-500">Menu</div>
-            <div className="text-base font-semibold">
-              {role?.toUpperCase()}
+        <div className="border-b px-4 py-5">
+          <div className="flex items-center justify-between">
+            <div className="overflow-hidden">
+              {!collapsed && (
+                <h2 className="text-lg font-bold text-gray-900">
+                  {role?.toUpperCase()}
+                </h2>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Desktop Collapse Toggle */}
+              <button
+                onClick={() => setCollapsed(!collapsed)}
+                className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+              >
+                {collapsed ? "→" : "←"}
+              </button>
+
+              {/* Mobile Close Button */}
+              <button
+                className="md:hidden rounded-lg border px-3 py-2 text-sm"
+                onClick={onClose}
+              >
+                ✕
+              </button>
             </div>
           </div>
-
-          <button
-            className="md:hidden rounded-lg border px-3 py-2 text-sm"
-            onClick={onClose}
-          >
-            Close
-          </button>
         </div>
 
-        {/* Role menus */}
-        <div className="space-y-2">
-          {(menus[role] || []).map((m) => (
-            <Item key={m.to} to={m.to} label={m.label} />
-          ))}
-        </div>
+        {/* Navigation */}
+        <div className="p-4">
+          {!collapsed && (
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Navigation
+            </div>
+          )}
 
-        {/* Account section */}
-        <div className="mt-6">
-          <div className="mb-2 text-xs font-semibold uppercase text-gray-500">
-            Account
+          <div className="space-y-2">
+            {(menus[role] || []).map((item) => (
+              <Item
+                key={item.to}
+                to={item.to}
+                label={item.label}
+                icon={item.icon}
+                collapsed={collapsed}
+              />
+            ))}
           </div>
-          <Item to="../pages/profile/EditProfile" label="Edit Profile" />
         </div>
-
-
       </aside>
     </>
   );
