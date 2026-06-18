@@ -33,10 +33,14 @@ class MaxFlow:
     def add_edge(self, u, v, cap):
         if v not in self.graph[u]:
             self.graph[u][v] = 0
+
         if u not in self.graph[v]:
             self.graph[v][u] = 0
+
         self.graph[u][v] += cap
-        self.original[u][v] = self.graph[u][v]
+
+        if v not in self.original[u]:
+            self.original[u][v] = cap
 
     def bfs(self, s, t, parent):
         visited = set([s])
@@ -73,24 +77,124 @@ class MaxFlow:
             flow += path_flow
         return flow
 
-def solve_with_threshold(papers, reviewers, paper_to_reviewers, k, c, threshold):
+def solve_with_threshold(
+    papers,
+    reviewers,
+    paper_to_reviewers,
+    k,
+    c,
+    threshold
+):
+
     mf = MaxFlow()
-    SOURCE, SINK = "S", "T"
-    for p in papers:
-        mf.add_edge(SOURCE, p, k)
-        for r, w in paper_to_reviewers[p]:
-            if w >= threshold:
-                mf.add_edge(p, r, 1)
-    for r in reviewers:
-        mf.add_edge(r, SINK, c)
-    flow = mf.max_flow(SOURCE, SINK)
+
+    SOURCE = "S"
+    SINK = "T"
+
+    # ----------------------------------
+    # Source -> Papers
+    # ----------------------------------
+
+    for paper in papers:
+
+        paper_node = f"P_{paper}"
+
+        mf.add_edge(
+            SOURCE,
+            paper_node,
+            k
+        )
+
+        # ------------------------------
+        # Paper -> Reviewer
+        # ------------------------------
+
+        for reviewer, weight in paper_to_reviewers[paper]:
+
+            if weight < threshold:
+                continue
+
+            reviewer_node = f"R_{reviewer}"
+
+            mf.add_edge(
+                paper_node,
+                reviewer_node,
+                1
+            )
+
+    # ----------------------------------
+    # Reviewer -> Sink
+    # ----------------------------------
+
+    for reviewer in reviewers:
+
+        reviewer_node = f"R_{reviewer}"
+
+        mf.add_edge(
+            reviewer_node,
+            SINK,
+            c
+        )
+
+    flow = mf.max_flow(
+        SOURCE,
+        SINK
+    )
+
     if flow != len(papers) * k:
         return False, None
+
+    # ----------------------------------
+    # Recover assignment
+    # ----------------------------------
+
     assignment = defaultdict(list)
-    for p in papers:
-        for r, _ in paper_to_reviewers[p]:
-            if r in mf.original[p] and mf.graph[p][r] == 0:
-                assignment[p].append(r)
+
+    for paper in papers:
+
+        paper_node = f"P_{paper}"
+
+        for reviewer, weight in paper_to_reviewers[paper]:
+
+            if weight < threshold:
+                continue
+
+            reviewer_node = f"R_{reviewer}"
+
+            original_cap = (
+                mf.original[paper_node]
+                .get(reviewer_node, 0)
+            )
+
+            residual_cap = (
+                mf.graph[paper_node]
+                .get(reviewer_node, 0)
+            )
+
+            flow_used = (
+                original_cap
+                - residual_cap
+            )
+
+            if flow_used == 1:
+
+                assignment[paper].append(
+                    reviewer
+                )
+
+    # sanity check
+
+    total = sum(
+        len(v)
+        for v in assignment.values()
+    )
+
+    print(
+        f"Threshold={threshold:.4f}, "
+        f"Flow={flow}, "
+        f"Recovered={total}"
+    )
+
     return True, assignment
 
 def solve(papers, reviewers, paper_to_reviewers, k, c):
@@ -125,6 +229,10 @@ def main():
     pr_edges = load_paper_reviewer_edges()
     weight_lookup = {(p, r): w for p, r, w in pr_edges}
     papers, reviewers, paper_to_reviewers = build_data_structures(pr_edges)
+    print(
+        "Common IDs:",
+        sorted(set(papers) & set(reviewers))
+    )
     k, c = 3, 6
     score, assignment = solve(papers, reviewers, paper_to_reviewers, k, c)
     if assignment:
