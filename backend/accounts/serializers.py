@@ -1,22 +1,26 @@
 from django.contrib.auth import get_user_model, authenticate
-from django.contrib.auth.password_validation import validate_password
-from django.db import transaction
-
 from rest_framework import serializers
+from django.db import transaction
+from django.contrib.auth.password_validation import validate_password
 
 from accounts.models import Researcher
 
 User = get_user_model()
 
 
+# ==================================================
+# Researcher Serializer
+# ==================================================
 class ResearcherSerializer(serializers.ModelSerializer):
-    """
-    Serializer for displaying researcher/reviewer data.
-    """
-    email = serializers.EmailField(source="user.email", read_only=True)
+
+    email = serializers.EmailField(
+        source="user.email",
+        read_only=True
+    )
 
     class Meta:
         model = Researcher
+
         fields = [
             "id",
             "name",
@@ -27,15 +31,18 @@ class ResearcherSerializer(serializers.ModelSerializer):
         ]
 
 
+# ==================================================
+# Register Serializer
+# ==================================================
 class RegisterSerializer(serializers.Serializer):
-    """
-    Registration serializer matching the current Researcher model.
-    """
 
     email = serializers.EmailField(required=True)
-    password = serializers.CharField(write_only=True, required=True)
+    password = serializers.CharField(
+        write_only=True,
+        required=True
+    )
 
-    name = serializers.CharField(required=True)
+    name = serializers.CharField()
 
     institutions = serializers.ListField(
         child=serializers.CharField(),
@@ -53,9 +60,13 @@ class RegisterSerializer(serializers.Serializer):
     )
 
     def validate_email(self, value):
+
         value = value.strip().lower()
 
-        if User.objects.filter(email__iexact=value).exists():
+        if User.objects.filter(
+            email__iexact=value
+        ).exists():
+
             raise serializers.ValidationError(
                 "Email already registered"
             )
@@ -67,11 +78,18 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def _clean_list(self, values):
-        cleaned = [v.strip() for v in values if v.strip()]
+
+        cleaned = [
+            v.strip()
+            for v in values
+            if v.strip()
+        ]
+
         return list(dict.fromkeys(cleaned))
 
     @transaction.atomic
     def create(self, validated_data):
+
         email = validated_data["email"]
 
         user = User.objects.create_user(
@@ -86,7 +104,10 @@ class RegisterSerializer(serializers.Serializer):
             institutions=self._clean_list(
                 validated_data["institutions"]
             ),
-            work=validated_data.get("work", ""),
+            work=validated_data.get(
+                "work",
+                ""
+            ),
             is_reviewer=validated_data.get(
                 "is_reviewer",
                 False
@@ -96,15 +117,28 @@ class RegisterSerializer(serializers.Serializer):
         return user
 
 
+# ==================================================
+# Login Serializer
+# ==================================================
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
+
+    email = serializers.CharField(
+        required=True
+    )
+
     password = serializers.CharField(
         write_only=True,
         required=True
     )
 
     def validate(self, data):
-        email = data.get("email", "").strip().lower()
+
+        email = (
+            data.get("email", "")
+            .strip()
+            .lower()
+        )
+
         password = data.get("password")
 
         user_obj = User.objects.filter(
@@ -127,10 +161,20 @@ class LoginSerializer(serializers.Serializer):
             )
 
         data["user"] = user
+
         return data
 
 
-class UpdateReviewerStatusSerializer(serializers.ModelSerializer):
+# ==================================================
+# Reviewer Status Serializer
+# ==================================================
+class UpdateReviewerStatusSerializer(
+    serializers.ModelSerializer
+):
+
     class Meta:
         model = Researcher
-        fields = ["is_reviewer"]
+
+        fields = [
+            "is_reviewer"
+        ]

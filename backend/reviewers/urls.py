@@ -6,10 +6,13 @@ from reviewers.views import (
     submit_review,
     reviewer_paper_detail,
     assignment_dashboard,
+    clear_assignments,  # NEW
 )
 
 urlpatterns = [
+    # ==========================================
     # Reviewer APIs
+    # ==========================================
     path(
         "me/",
         reviewer_profile,
@@ -34,10 +37,21 @@ urlpatterns = [
         name="reviewer_paper_detail"
     ),
 
+    # ==========================================
     # Admin Assignment Dashboard
+    # ==========================================
     path(
         "assignment-dashboard/",
         assignment_dashboard,
         name="assignment_dashboard"
+    ),
+
+    # ==========================================
+    # Clear Assignment Table
+    # ==========================================
+    path(
+        "clear-assignments/",
+        clear_assignments,
+        name="clear_assignments"
     ),
 ]

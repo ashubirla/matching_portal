@@ -1,6 +1,9 @@
 import os
 import sys
 import django
+import re
+import faiss
+from rapidfuzz import fuzz
 
 from tqdm import tqdm
 from django.db import connection
@@ -36,7 +39,93 @@ print("Loading embedding model...")
 model = SentenceTransformer(
     "all-MiniLM-L6-v2"
 )
+# --------------------------------------------------
+# NORMALIZATION
+# --------------------------------------------------
 
+def normalize(text):
+    text = str(text).lower()
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+# --------------------------------------------------
+# INSTITUTION REGISTRY
+# --------------------------------------------------
+
+def build_institution_registry(
+    papers,
+    reviewers
+):
+
+    institutions = set()
+
+    for p in papers:
+        institutions.update(
+            p.paper_affiliations or []
+        )
+
+    for r in reviewers:
+        institutions.update(
+            r.institutions or []
+        )
+
+    institutions = list(institutions)
+
+    embeddings = model.encode(
+        [normalize(x) for x in institutions],
+        normalize_embeddings=True
+    ).astype("float32")
+
+    index = faiss.IndexFlatIP(
+        embeddings.shape[1]
+    )
+
+    index.add(embeddings)
+
+    return institutions, index
+
+
+inst_cache = {}
+
+def resolve_institution(
+    inst,
+    institutions,
+    index
+):
+
+    if not inst:
+        return None, 0.0
+
+    if inst in inst_cache:
+        return inst_cache[inst]
+
+    emb = model.encode(
+        [normalize(inst)],
+        normalize_embeddings=True
+    ).astype("float32")
+
+    scores, idx = index.search(
+        emb,
+        1
+    )
+
+    best_score = float(
+        scores[0][0]
+    )
+
+    best_entity = institutions[
+        int(idx[0][0])
+    ]
+
+    result = (
+        best_entity,
+        best_score
+    )
+
+    inst_cache[inst] = result
+
+    return result
 print("Model loaded")
 
 
@@ -131,7 +220,9 @@ def compute_cosine_similarity(
 
 def has_institution_conflict(
     paper_affiliations,
-    reviewer_institutions
+    reviewer_institutions,
+    institutions,
+    index
 ):
 
     if (
@@ -141,32 +232,44 @@ def has_institution_conflict(
     ):
         return False
 
-    paper_set = {
+    for p in paper_affiliations:
 
-        str(x).strip().lower()
+        for r in reviewer_institutions:
 
-        for x in paper_affiliations
+            p_entity, p_score = (
+                resolve_institution(
+                    p,
+                    institutions,
+                    index
+                )
+            )
 
-        if x and str(x).strip()
-    }
+            r_entity, r_score = (
+                resolve_institution(
+                    r,
+                    institutions,
+                    index
+                )
+            )
 
-    reviewer_set = {
+            if (
+                p_entity == r_entity
+                and p_score > 0.85
+                and r_score > 0.85
+            ):
+                return True
 
-        str(x).strip().lower()
+            fuzzy_score = (
+                fuzz.token_set_ratio(
+                    normalize(p),
+                    normalize(r)
+                ) / 100.0
+            )
 
-        for x in reviewer_institutions
+            if fuzzy_score > 0.95:
+                return True
 
-        if x and str(x).strip()
-    }
-
-    if not paper_set or not reviewer_set:
-        return False
-
-    return len(
-        paper_set.intersection(
-            reviewer_set
-        )
-    ) > 0
+    return False
 
 
 # --------------------------------------------------
@@ -238,6 +341,16 @@ def main():
     print(
         f"Total Reviewers: {reviewers.count()}"
     )
+    print(
+        "\nBuilding institution registry..."
+    )
+    
+    institutions, index = (
+        build_institution_registry(
+           papers,
+           reviewers
+        )
+    )
 
     reviewer_embeddings = {}
 
@@ -295,8 +408,10 @@ def main():
             # ----------------------------------
 
             if has_institution_conflict(
-                paper_affiliations,
-                reviewer_institutions
+             paper_affiliations,
+             reviewer_institutions,
+             institutions,
+              index
             ):
 
                 excluded_pairs += 1

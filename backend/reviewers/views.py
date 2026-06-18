@@ -190,3 +190,17 @@ def assignment_dashboard(request):
 
         "assignments": serializer.data,
     })
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def clear_assignments(request):
+
+    deleted_count = FinalAssignment.objects.count()
+
+    FinalAssignment.objects.all().delete()
+
+    return Response({
+        "status": True,
+        "message": f"{deleted_count} assignments deleted successfully."
+    })
