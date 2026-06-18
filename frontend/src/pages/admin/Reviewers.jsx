@@ -9,6 +9,7 @@ export default function ReviewerList() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchType, setSearchType] = useState("name");
 
   const itemsPerPage = 10;
 
@@ -20,7 +21,10 @@ export default function ReviewerList() {
         const res = await api.get("/api/auth/reviewers/");
 
         if (res.data?.status) {
-          setReviewers(res.data.reviewers || []);
+          const sortedReviewers = [...(res.data.reviewers || [])]
+            .sort((a, b) => a.id - b.id);
+
+          setReviewers(sortedReviewers);
         }
       } catch (err) {
         console.error("Reviewer API Error:", err);
@@ -43,9 +47,22 @@ export default function ReviewerList() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const filteredReviewers = reviewers.filter((reviewer) =>
-    reviewer.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredReviewers = reviewers.filter((reviewer) => {
+    const search = searchTerm.toLowerCase().trim();
+
+    if (!search) return true;
+
+    switch (searchType) {
+      case "id":
+        return String(reviewer.id).includes(search);
+
+      case "name":
+      default:
+        return reviewer.name
+          ?.toLowerCase()
+          .includes(search);
+    }
+  });
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -180,17 +197,39 @@ export default function ReviewerList() {
         </div>
 
         {/* Search */}
-        <div className="w-full lg:w-[380px]">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Search Reviewer
-          </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Search Reviewer
+        </label>
 
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <select
+            value={searchType}
+            onChange={(e) =>
+              setSearchType(e.target.value)
+            }
+            className="px-4 py-3 border border-gray-300 rounded-xl bg-white"
+          >
+            <option value="id">
+              Search by Reviewer ID
+            </option>
+
+            <option value="name">
+              Search by Reviewer Name
+            </option>
+          </select>
+
+          <div className="relative flex-1">
             <input
               type="text"
-              placeholder="Search by reviewer name..."
+              placeholder={
+                searchType === "id"
+                  ? "Enter reviewer ID..."
+                  : "Enter reviewer name..."
+              }
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) =>
+                setSearchTerm(e.target.value)
+              }
               className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
 

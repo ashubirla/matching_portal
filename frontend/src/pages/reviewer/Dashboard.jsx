@@ -36,7 +36,9 @@ export default function ReviewerDashboard() {
   }, []);
 
   // Derived Values
-  const allAssignments = [...pending, ...submitted];
+  const allAssignments = [...pending, ...submitted].sort(
+    (a, b) => a.paper_id - b.paper_id
+  );
   const pendingCount = pending.length;
   const submittedCount = submitted.length;
 
@@ -106,18 +108,17 @@ export default function ReviewerDashboard() {
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-800">Recent Assignments</h3>
-          <Link
-            to="/reviewer/assigned"
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium hover:bg-gray-50 transition-all"
-          >
-            View All
-          </Link>
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-gray-800">
+              Assigned Papers
+            </h3>
+          </div>
         </div>
 
         {allAssignments.length > 0 ? (
           <DataTable
             columns={columns}
-            rows={allAssignments.slice(0, 5)}
+            rows={allAssignments}
             rowKey="id" // Matches the unique ID from FinalAssignment model
           />
         ) : (

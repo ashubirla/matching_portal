@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import api from "../api"; // 🛠️ Use your configured api instance
+import api from "../api";
 
 export default function ReviewForm() {
   const { paperId } = useParams();
@@ -11,128 +11,239 @@ export default function ReviewForm() {
   const [comments, setComments] = useState("");
   const [msg, setMsg] = useState({ text: "", type: "" });
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // 1. Fetch paper details to show context
   useEffect(() => {
     const fetchPaper = async () => {
       try {
         setLoading(true);
-        const res = await api.get(`/api/reviewer/paper/${paperId}/`);
-        if (res.data && res.data.status) {
+
+        const res = await api.get(
+          `/api/reviewers/paper/${paperId}/`
+        );
+
+        if (res.data?.status) {
           setPaper(res.data.data);
         }
       } catch (err) {
-        console.error("Fetch Error:", err);
+        console.error(
+          "Paper Fetch Error:",
+          err.response?.data || err
+        );
+        setPaper(null);
       } finally {
         setLoading(false);
       }
     };
-    fetchPaper();
+
+    if (paperId) {
+      fetchPaper();
+    }
   }, [paperId]);
 
-  // 2. Submit review logic
   const onSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      // NOTE: We send 'paper_score' to match your Django Serializer fields
-      const response = await api.post(`/api/reviewer/submit-review/${paperId}/`, {
-        paper_score: score, 
-        comments: comments,
-      });
+      setSubmitting(true);
 
-      if (response.data.status) {
-        setMsg({ text: "Review submitted successfully!", type: "success" });
-        setTimeout(() => navigate("/reviewer/assigned"), 2000);
+      const response = await api.post(
+        `/api/reviewers/submit-review/${paperId}/`,
+        {
+          paper_score: Number(score),
+          comments: comments,
+        }
+      );
+
+      if (response.data?.status) {
+        setMsg({
+          text: "Review submitted successfully!",
+          type: "success",
+        });
+
+        setTimeout(() => {
+          navigate("/reviewer/assigned");
+        }, 1500);
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.error || "Error submitting review.";
-      setMsg({ text: errorMsg, type: "error" });
+      console.error(
+        "Submit Review Error:",
+        err.response?.data || err
+      );
+
+      setMsg({
+        text:
+          err.response?.data?.error ||
+          "Failed to submit review.",
+        type: "error",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="p-10 text-center text-gray-500">Loading form...</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <div className="text-lg text-gray-500">
+          Loading review form...
+        </div>
+      </div>
+    );
+  }
 
   if (!paper) {
     return (
-      <div className="rounded-2xl border bg-white p-6 text-center">
-        <p>Paper not found or unauthorized.</p>
-        <Link to="/reviewer/assigned" className="text-blue-600 underline">Back to List</Link>
+      <div className="bg-white rounded-2xl border p-8 text-center">
+        <h2 className="text-xl font-semibold text-gray-800">
+          Paper not found
+        </h2>
+
+        <p className="mt-2 text-gray-500">
+          This paper is either not assigned to you
+          or no longer exists.
+        </p>
+
+        <Link
+          to="/reviewer/assigned"
+          className="inline-block mt-5 text-blue-600 hover:underline"
+        >
+          Back to Assigned Papers
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
-        <div className="mb-6">
-          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">ID: {paper.paper_id}</span>
-          <h2 className="text-2xl font-bold text-gray-900 mt-2">Submit Your Review</h2>
-          <p className="text-sm text-gray-500 mt-1">Reviewing: <span className="italic">"{paper.paper_title}"</span></p>
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-2xl border p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+            Paper #{paper.paper_id}
+          </span>
+
+          <span className="text-xs text-gray-500">
+            Double Blind Review
+          </span>
         </div>
 
+        <h1 className="mt-4 text-2xl font-bold text-gray-900">
+          {paper.paper_title}
+        </h1>
+
+        <div className="mt-5">
+          <h3 className="font-semibold text-gray-800 mb-2">
+            Abstract
+          </h3>
+
+          <div className="bg-gray-50 border rounded-xl p-4 text-sm text-gray-700 leading-relaxed max-h-64 overflow-y-auto">
+            {paper.paper_abstract}
+          </div>
+        </div>
+
+        {paper.pdf_url && (
+          <div className="mt-5">
+            <a
+              href={paper.pdf_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-xl bg-blue-600 px-5 py-3 text-white font-medium hover:bg-blue-700 transition"
+            >
+              Open PDF
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* Review Form */}
+      <div className="bg-white rounded-2xl border p-6 shadow-sm">
+        <h2 className="text-xl font-bold text-gray-900 mb-6">
+          Submit Review
+        </h2>
+
         {msg.text && (
-          <div className={`mb-6 rounded-xl px-4 py-3 text-sm flex items-center gap-2 ${
-            msg.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
-          }`}>
-            {msg.type === "success" ? "✅" : "❌"} {msg.text}
+          <div
+            className={`mb-6 rounded-xl px-4 py-3 text-sm font-medium ${msg.type === "success"
+                ? "bg-green-50 text-green-700 border border-green-200"
+                : "bg-red-50 text-red-700 border border-red-200"
+              }`}
+          >
+            {msg.text}
           </div>
         )}
 
-        <form className="space-y-5" onSubmit={onSubmit}>
-          {/* Score Selection */}
+        <form onSubmit={onSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Overall Quality Score</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Paper Score
+            </label>
+
             <select
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition-all appearance-none bg-gray-50"
               value={score}
-              onChange={(e) => setScore(e.target.value)}
+              onChange={(e) =>
+                setScore(e.target.value)
+              }
               required
+              className="w-full border rounded-xl px-4 py-3"
             >
-              <option value="">Select a score...</option>
-              <option value="5">Accept (5)</option>
-              <option value="4">Weak Accept (4)</option>
-              <option value="3">Borderline (3)</option>
-              <option value="2">Weak Reject (2)</option>
-              <option value="1">Reject (1)</option>
+              <option value="">
+                Select Score
+              </option>
+              <option value="5">
+                Accept (5)
+              </option>
+              <option value="4">
+                Weak Accept (4)
+              </option>
+              <option value="3">
+                Borderline (3)
+              </option>
+              <option value="2">
+                Weak Reject (2)
+              </option>
+              <option value="1">
+                Reject (1)
+              </option>
             </select>
           </div>
 
-          {/* Detailed Comments */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Detailed Comments</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Reviewer Comments
+            </label>
+
             <textarea
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-gray-50"
-              rows={6}
-              placeholder="Provide constructive feedback for the authors..."
+              rows={8}
               value={comments}
-              onChange={(e) => setComments(e.target.value)}
+              onChange={(e) =>
+                setComments(e.target.value)
+              }
               required
+              placeholder="Provide detailed feedback for the authors..."
+              className="w-full border rounded-xl px-4 py-3 resize-none"
             />
           </div>
 
-          <div className="flex items-center gap-4 pt-4">
-            <button 
+          <div className="flex flex-wrap gap-3">
+            <button
               type="submit"
-              className="flex-1 rounded-xl bg-blue-600 px-6 py-3 text-white text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
+              disabled={submitting}
+              className="px-6 py-3 rounded-xl bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50"
             >
-              Confirm Submission
+              {submitting
+                ? "Submitting..."
+                : "Submit Review"}
             </button>
 
             <Link
-              className="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors"
               to={`/reviewer/paper/${paper.paper_id}`}
+              className="px-6 py-3 rounded-xl border text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </Link>
           </div>
         </form>
-      </div>
-      
-      <div className="text-center">
-        <p className="text-xs text-gray-400 italic">
-          Note: Once submitted, reviews cannot be edited without administrative approval.
-        </p>
       </div>
     </div>
   );

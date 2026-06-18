@@ -17,7 +17,7 @@ export default function ReviewerPaperDetails() {
       try {
         setLoading(true);
         const res = await api.get(`/api/reviewers/paper/${paperId}/`);
-        
+
         if (res.data && res.data.status) {
           setPaper(res.data.data);
         }
@@ -65,11 +65,11 @@ export default function ReviewerPaperDetails() {
             Double-blind: Author details hidden
           </span>
         </div>
-        
+
         <h2 className="text-2xl font-bold text-gray-900 leading-tight">
           {paper.paper_title}
         </h2>
-        
+
         <div className="mt-4">
           <h4 className="text-sm font-semibold text-gray-800 mb-1">Abstract</h4>
           <p className="text-sm text-gray-600 leading-relaxed">
@@ -93,7 +93,7 @@ export default function ReviewerPaperDetails() {
             rel="noopener noreferrer"
             className="w-full sm:w-auto text-center rounded-xl bg-blue-600 hover:bg-blue-700 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition-all"
           >
-            Download PDF
+            Open PDF
           </a>
         </div>
 

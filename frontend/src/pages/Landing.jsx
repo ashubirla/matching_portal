@@ -58,7 +58,7 @@ export default function Landing() {
           </p>
 
           <div className="mt-4 text-sm text-indigo-200">
-            📍 Hyderabad, India • 🗓 June 2026
+            📍 Bangalore, India • 🗓 June 2026
           </div>
 
           <div className="mt-8 flex flex-wrap gap-4">
@@ -181,11 +181,11 @@ export default function Landing() {
           </div>
         </section>
 
-        
+
 
         {/* FOOTER */}
         <footer className="mt-16 text-center text-sm text-gray-500">
-          © SIGMOD 2026 · ACM Special Interest Group on Management of Data  
+          © SIGMOD 2026 · ACM Special Interest Group on Management of Data
           <div className="mt-1">contact@sigmod2026.org</div>
         </footer>
 

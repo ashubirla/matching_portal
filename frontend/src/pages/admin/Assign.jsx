@@ -136,6 +136,46 @@ export default function AdminAssign() {
       setLoading(false);
     }
   }
+  // ----------------------------------
+  // Clear Assignment Table
+  // ----------------------------------
+
+  async function clearAssignments() {
+
+    const confirmDelete = window.confirm(
+      "Are you sure?\n\nThis will permanently delete ALL rows from the FinalAssignment table."
+    );
+
+    if (!confirmDelete) return;
+
+    setLoading(true);
+
+    try {
+
+      const res = await api.delete(
+        "/api/reviewers/clear-assignments/"
+      );
+
+      alert(
+        res.data.message ||
+        "Assignment table cleared successfully."
+      );
+
+      setResult(null);
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        err.response?.data?.message ||
+        "Failed to clear assignment table."
+      );
+
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // ----------------------------------
   // Algorithms
@@ -261,7 +301,7 @@ export default function AdminAssign() {
             </option>
 
             <option value="reviewerReviewer">
-              Reviewer → Reviewer Edge Weights
+              Reviewer → Reviewer Edge Weights (For diversity algo)
             </option>
           </select>
 
@@ -352,7 +392,7 @@ export default function AdminAssign() {
             </option>
 
             <option value="IA">
-              Iterative Assignment
+              Network Flow with diversity
             </option>
           </select>
 
@@ -374,7 +414,7 @@ export default function AdminAssign() {
               transition
               ${!selectedAlgorithm || loading
                 ? "bg-gray-400"
-                : "bg-gray-900 hover:bg-black"
+                : "bg-blue-600 hover:bg-blue-700"
               }
             `}
           >
@@ -382,7 +422,36 @@ export default function AdminAssign() {
           </button>
         </div>
       </div>
+      {/* Clear Assignment Table */}
 
+      <div className="border rounded-3xl p-6 bg-gray-50 shadow-sm space-y-4">
+
+        <h3 className="text-lg font-semibold text-gray-700">
+          Assignment Table Maintenance
+        </h3>
+
+        <p className="text-sm text-gray-600">
+          Delete all rows from the Final Assignment table.
+        </p>
+
+        <button
+          disabled={loading}
+          onClick={clearAssignments}
+          className="
+      w-full
+      py-3
+      rounded-xl
+      bg-gray-600
+      hover:bg-gray-700
+      text-white
+      font-medium
+      transition
+    "
+        >
+          Clear Assignment Table
+        </button>
+
+      </div>
       {/* Loading State */}
 
       {loading && (

@@ -105,6 +105,9 @@ export default function ReviewerAssigned() {
       </div>
 
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="p-2 bg-yellow-100">
+          Total Papers: {filtered.length}
+        </div>
         <DataTable columns={columns} rows={filtered} rowKey="id" />
 
         {allPapers.length === 0 && (

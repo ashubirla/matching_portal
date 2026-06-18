@@ -5,7 +5,7 @@ import StatsCard from "../../components/StatsCard";
 
 export default function AssignmentDashboard() {
   const [assignments, setAssignments] = useState([]);
-
+  const [sortBy, setSortBy] = useState("paper");
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -13,10 +13,8 @@ export default function AssignmentDashboard() {
   });
 
   const [loading, setLoading] = useState(true);
-  const [paperTitleSearch, setPaperTitleSearch] = useState("");
-  const [reviewerSearch, setReviewerSearch] = useState("");
-  const [paperIdSearch, setPaperIdSearch] = useState("");
-  const [reviewerIdSearch, setReviewerIdSearch] = useState("");
+  const [searchBy, setSearchBy] = useState("paper_title");
+  const [searchValue, setSearchValue] = useState("");
 
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -97,43 +95,45 @@ export default function AssignmentDashboard() {
     }
   };
 
+  const sortedAssignments = [...assignments].sort(
+    (a, b) => {
+      if (sortBy === "paper") {
+        return a.paper_id - b.paper_id;
+      }
+
+      return a.reviewer_id - b.reviewer_id;
+    }
+  );
+
   const filteredAssignments =
-    assignments.filter((item) => {
+    sortedAssignments.filter((item) => {
+      const search =
+        searchValue.toLowerCase().trim();
 
-      const paperTitleMatch =
-        !paperTitleSearch ||
-        item.paper_title
-          ?.toLowerCase()
-          .includes(
-            paperTitleSearch.toLowerCase()
-          );
+      if (!search) return true;
 
-      const reviewerMatch =
-        !reviewerSearch ||
-        item.reviewer_name
-          ?.toLowerCase()
-          .includes(
-            reviewerSearch.toLowerCase()
-          );
+      switch (searchBy) {
+        case "paper_title":
+          return item.paper_title
+            ?.toLowerCase()
+            .includes(search);
 
-      const paperIdMatch =
-        !paperIdSearch ||
-        String(item.paper_id).includes(
-          paperIdSearch
-        );
+        case "reviewer_name":
+          return item.reviewer_name
+            ?.toLowerCase()
+            .includes(search);
 
-      const reviewerIdMatch =
-        !reviewerIdSearch ||
-        String(item.reviewer_id).includes(
-          reviewerIdSearch
-        );
+        case "paper_id":
+          return String(item.paper_id)
+            .includes(search);
 
-      return (
-        paperTitleMatch &&
-        reviewerMatch &&
-        paperIdMatch &&
-        reviewerIdMatch
-      );
+        case "reviewer_id":
+          return String(item.reviewer_id)
+            .includes(search);
+
+        default:
+          return true;
+      }
     });
 
   const totalPages = Math.ceil(
@@ -276,57 +276,67 @@ export default function AssignmentDashboard() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
 
-          <input
-            type="text"
-            placeholder="Search Paper Title"
-            value={paperTitleSearch}
+          {/* Sort */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="border rounded-xl px-4 py-3"
+          >
+            <option value="paper">
+              Sort by Paper ID
+            </option>
+
+            <option value="reviewer">
+              Sort by Reviewer ID
+            </option>
+          </select>
+
+          {/* Search By */}
+          <select
+            value={searchBy}
             onChange={(e) => {
-              setPaperTitleSearch(
-                e.target.value
-              );
+              setSearchBy(e.target.value);
+              setSearchValue("");
               setCurrentPage(1);
             }}
             className="border rounded-xl px-4 py-3"
-          />
+          >
+            <option value="paper_title">
+              Search by Paper Title
+            </option>
 
+            <option value="reviewer_name">
+              Search by Reviewer Name
+            </option>
+
+            <option value="paper_id">
+              Search by Paper ID
+            </option>
+
+            <option value="reviewer_id">
+              Search by Reviewer ID
+            </option>
+          </select>
+
+          {/* Search Value */}
           <input
             type="text"
-            placeholder="Search Reviewer Name"
-            value={reviewerSearch}
+            value={searchValue}
             onChange={(e) => {
-              setReviewerSearch(
-                e.target.value
-              );
+              setSearchValue(e.target.value);
               setCurrentPage(1);
             }}
-            className="border rounded-xl px-4 py-3"
-          />
-
-          <input
-            type="text"
-            placeholder="Search Paper ID"
-            value={paperIdSearch}
-            onChange={(e) => {
-              setPaperIdSearch(
-                e.target.value
-              );
-              setCurrentPage(1);
-            }}
-            className="border rounded-xl px-4 py-3"
-          />
-
-          <input
-            type="text"
-            placeholder="Search Reviewer ID"
-            value={reviewerIdSearch}
-            onChange={(e) => {
-              setReviewerIdSearch(
-                e.target.value
-              );
-              setCurrentPage(1);
-            }}
+            placeholder={
+              searchBy === "paper_title"
+                ? "Enter paper title..."
+                : searchBy === "reviewer_name"
+                  ? "Enter reviewer name..."
+                  : searchBy === "paper_id"
+                    ? "Enter paper ID..."
+                    : "Enter reviewer ID..."
+            }
             className="border rounded-xl px-4 py-3"
           />
 

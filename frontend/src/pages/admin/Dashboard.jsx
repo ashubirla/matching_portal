@@ -18,6 +18,7 @@ export default function AdminDashboard() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchType, setSearchType] = useState("title");
 
   const itemsPerPage = 10;
 
@@ -29,12 +30,12 @@ export default function AdminDashboard() {
         const res = await api.get("/api/papers/");
 
         if (res.data?.status) {
-          setPapers(res.data.papers || []);
-          setStats(res.data.counts || {});
-        } else {
-          throw new Error(
-            res.data?.message || "Failed to fetch dashboard data"
+          const sortedPapers = [...(res.data.papers || [])].sort(
+            (a, b) => a.id - b.id
           );
+
+          setPapers(sortedPapers);
+          setStats(res.data.counts || {});
         }
       } catch (err) {
         console.error(err);
@@ -52,14 +53,25 @@ export default function AdminDashboard() {
   }, [searchTerm]);
 
   const filteredPapers = papers.filter((paper) => {
-    const search = searchTerm.toLowerCase();
+    const search = searchTerm.toLowerCase().trim();
 
-    return (
-      paper.title?.toLowerCase().includes(search) ||
-      paper.author_names?.some((a) =>
-        a.toLowerCase().includes(search)
-      )
-    );
+    if (!search) return true;
+
+    switch (searchType) {
+      case "id":
+        return String(paper.id).includes(search);
+
+      case "author":
+        return paper.author_names?.some((author) =>
+          author.toLowerCase().includes(search)
+        );
+
+      case "title":
+      default:
+        return paper.title
+          ?.toLowerCase()
+          .includes(search);
+    }
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -251,15 +263,43 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          <input
-            type="text"
-            placeholder="Search by title or author..."
-            value={searchTerm}
-            onChange={(e) =>
-              setSearchTerm(e.target.value)
-            }
-            className="w-full lg:w-80 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-          />
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <select
+              value={searchType}
+              onChange={(e) =>
+                setSearchType(e.target.value)
+              }
+              className="px-4 py-3 border rounded-xl bg-white"
+            >
+              <option value="id">
+                Search by Paper ID
+              </option>
+
+              <option value="title">
+                Search by Paper Title
+              </option>
+
+              <option value="author">
+                Search by Author Name
+              </option>
+            </select>
+
+            <input
+              type="text"
+              placeholder={
+                searchType === "id"
+                  ? "Enter paper ID..."
+                  : searchType === "author"
+                    ? "Enter author name..."
+                    : "Enter paper title..."
+              }
+              value={searchTerm}
+              onChange={(e) =>
+                setSearchTerm(e.target.value)
+              }
+              className="w-full lg:w-96 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
         </div>
 
         <DataTable
