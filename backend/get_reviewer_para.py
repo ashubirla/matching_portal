@@ -110,7 +110,6 @@ def build_research_text(papers):
         concept_text = ", ".join(concepts)
 
         full_text += f"""
-==================================================
 
 PAPER {i+1}
 

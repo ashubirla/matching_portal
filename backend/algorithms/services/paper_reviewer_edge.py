@@ -156,20 +156,13 @@ def compute_institution_similarity(
     return normalize_institution_score(best_score)
  
  
-# --------------------------------------------------
-# COSINE SIM
-# --------------------------------------------------
+
  
 def cos_sim(a, b):
     return float((cosine_similarity([a], [b])[0][0] + 1) / 2)
  
 
 def normalize_institution_score(score):
-    """
-    Map:
-    [0.0, 0.8) -> 0
-    [0.8, 1.0] -> [0, 1]
-    """
     if score < 0.95:
         return 0.0
 
